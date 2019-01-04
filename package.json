@@ -1,0 +1,28 @@
+{
+  "name": "trading-monitor",
+  "version": "1.0.0",
+  "productName": "Trading monitor",
+  "description": "",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akucherov/trading-monitor.git"
+  },
+  "keywords": [],
+  "author": "Andrei Kucherov",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^4.0.0"
+  },
+  "dependencies": {
+    "bootstrap": "^4.1.3",
+    "electron-store": "^2.0.0",
+    "feather-icons": "^4.9.0",
+    "jquery": "^3.3.1",
+    "node-binance-api": "^0.8.7",
+    "popper.js": "^1.14.6"
+  }
+}
