@@ -1,3 +1,7 @@
 body {
   font-size: .875rem;
 }
+
+.ticker {
+  margin: 5px
+ }
