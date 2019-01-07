@@ -1,7 +1,10 @@
+
+
 let bot = function Bot() {
     let Bot = this;
-    
+
     const util = require('util');
+    const emitter = require('events').EventEmitter;
     const file = require('fs');
     const Binance = require('node-binance-api');
     const common = require('../common/common');
@@ -28,6 +31,7 @@ let bot = function Bot() {
     Bot.marketBuy = undefined;
     Bot.options = default_options;
     Bot.tradingPairs = new Array();
+    Bot.e = new emitter();
 
     const monitor = function(symbol, depth) {
 
@@ -58,9 +62,25 @@ let bot = function Bot() {
                 if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL) {
                     let changes = Math.round((buyPrice / Bot.tradingPairs[symbol].buyPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${buyPrice} ${changes}%`);
+                    Bot.e.emit("price-changes", 
+                        {
+                            symbol: symbol, 
+                            price: buyPrice, 
+                            changes: changes, 
+                            prices: Bot.tradingPairs[symbol].buyPrices,
+                            prec: Bot.tradingPairs[symbol].quotePrecision
+                        });
                 } else if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL) {
                     let changes = Math.round((sellPrice / Bot.tradingPairs[symbol].sellPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${sellPrice} ${changes}%`);
+                    Bot.e.emit("price-changes", 
+                        {
+                            symbol: symbol, 
+                            price: sellPrice, 
+                            changes: changes, 
+                            prices: Bot.tradingPairs[symbol].sellPrices,
+                            prec: Bot.tradingPairs[symbol].quotePrecision
+                        });
                 }
             }
         }
@@ -231,9 +251,14 @@ let bot = function Bot() {
                 });
 
                 Bot.options.log("Trading pairs:", symbols.map(p => p.symbol));
+                Bot.e.emit("trading-pairs", symbols.map(p => p.symbol));
 
                 Bot.binance.websockets.depthCache(symbols.map(p => p.symbol), monitor);
             }
+        },
+
+        on: function (e, f) {
+            Bot.e.on(e, f);
         }
 
     }

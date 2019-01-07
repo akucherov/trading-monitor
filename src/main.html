@@ -10,22 +10,36 @@
 </head>
 
 <body>
-    <div id="app" >
-        <div class="row no-gutters">
-            <div class="col-sm-4">
-                <div class="card bg-light mb-3 ticker">
+    <div id="app">
+        <nav class="navbar sticky-top navbar-light bg-light">
+            <a class="navbar-brand" href="#">Account balance: 0.00 USDT</a>
+            <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
+            <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'paused'"><span data-feather="play"></span></a>
+        </nav>
+        <div class="container" v-if="state == 'paused'">
+            <div class="row no-gutters">
+                <div class="col-12 col-lg-6">
+                    <form>
+                        <div class="form-group ">
+                            <label for="api-secret" class="col-form-label">API secret:</label>
+                            <input type="text" class="form-control" v-model="secret" id="api-secret">
+                            <label for="api-key" class="col-form-label">API key:</label>
+                            <input type="text" class="form-control" v-model="key" id="api-key">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="row no-gutters" v-if="state == 'started'">
+            <div class="col-sm-4 col-md-3 col-lg-2" v-for="p in pairs">
+                <div class="card mb-3 ticker text-white" v-bind:class="pairClass(p)">
+                    <div class="card-header">{{p.symbol}}<span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span></div>
                     <div class="card-body">
-                        <p class="card-text">With supporting text below as a natural lead-in to additional content.</p>
+                        <h5 class="card-title">{{p.price}}</h5>
+                        <small v-if="p.changes !== undefined">AVG({{p.size}}):{{p.avg}}</small>
                     </div>
                 </div>
             </div>
-            <div class="col-sm-4">
-                    <div class="card bg-light mb-3 ticker">
-                        <div class="card-body">
-                            <p class="card-text">With supporting text below as a natural lead-in to additional content.</p>
-                        </div>
-                    </div>
-                </div>
         </div>
     </div>
     <script>
