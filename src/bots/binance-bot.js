@@ -8,19 +8,19 @@ let bot = function Bot() {
     const file = require('fs');
     const Binance = require('node-binance-api');
     const common = require('../common/common');
-    const statuses = {PENDING: 0, WAIT_BUY_SIGNAL: 1, WAIT_SELL_SIGNAL: 2};
+    const statuses = { PENDING: 0, WAIT_BUY_SIGNAL: 1, WAIT_SELL_SIGNAL: 2 };
     const default_options = {
         test: true,
         ignore: [],
-        orderSize: 1,
+        orderSize: 20,
         historyDepth: [10, 10, 10],
         hidePricesForNumTicks: 10,
         logPricesChanges: true,
         log: function (...args) {
             Array.prototype.slice.call(args).forEach(e => console.log(e));
         },
-        buySignal: function() {return false},
-        sellSignal: function() {return false}
+        buySignal: function () { return false },
+        sellSignal: function () { return false }
     };
 
     Bot.binance = undefined;
@@ -33,26 +33,26 @@ let bot = function Bot() {
     Bot.tradingPairs = new Array();
     Bot.e = new emitter();
 
-    const monitor = function(symbol, depth) {
+    const monitor = function (symbol, depth) {
 
         //Parameters for signals
         let asksOrders = Bot.binance.array(Bot.binance.sortAsks(depth.asks));
         let bidsOrders = Bot.binance.array(Bot.binance.sortBids(depth.bids));
         let buyPrice = common.round(
-            common.avgPriceByQV(Bot.options.orderSize, asksOrders), 
+            common.avgPriceByQV(Bot.options.orderSize, asksOrders),
             Bot.tradingPairs[symbol].quotePrecision);
         let sellPrice = common.round(
             common.avgPriceByQV(Bot.options.orderSize, bidsOrders),
             Bot.tradingPairs[symbol].quotePrecision);
         let gap = buyPrice - sellPrice;
-        
-        if (Bot.tradingPairs[symbol].buyPrices.push(buyPrice) > Bot.options.historyDepth[0]) 
+
+        if (Bot.tradingPairs[symbol].buyPrices.push(buyPrice) > Bot.options.historyDepth[0])
             Bot.tradingPairs[symbol].buyPrices.shift();
-        if (Bot.tradingPairs[symbol].sellPrices.push(sellPrice) > Bot.options.historyDepth[1]) 
+        if (Bot.tradingPairs[symbol].sellPrices.push(sellPrice) > Bot.options.historyDepth[1])
             Bot.tradingPairs[symbol].sellPrices.shift();
-        if (Bot.tradingPairs[symbol].gaps.push(gap) > Bot.options.historyDepth[2]) 
+        if (Bot.tradingPairs[symbol].gaps.push(gap) > Bot.options.historyDepth[2])
             Bot.tradingPairs[symbol].gaps.shift();
-        
+
         //Show price changes
         if (Bot.options.logPricesChanges) {
             if (Bot.tradingPairs[symbol].counter) {
@@ -62,22 +62,22 @@ let bot = function Bot() {
                 if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL) {
                     let changes = Math.round((buyPrice / Bot.tradingPairs[symbol].buyPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${buyPrice} ${changes}%`);
-                    Bot.e.emit("price-changes", 
+                    Bot.e.emit("price-changes",
                         {
-                            symbol: symbol, 
-                            price: buyPrice, 
-                            changes: changes, 
+                            symbol: symbol,
+                            price: buyPrice,
+                            changes: changes,
                             prices: Bot.tradingPairs[symbol].buyPrices,
                             prec: Bot.tradingPairs[symbol].quotePrecision
                         });
                 } else if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL) {
                     let changes = Math.round((sellPrice / Bot.tradingPairs[symbol].sellPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${sellPrice} ${changes}%`);
-                    Bot.e.emit("price-changes", 
+                    Bot.e.emit("price-changes",
                         {
-                            symbol: symbol, 
-                            price: sellPrice, 
-                            changes: changes, 
+                            symbol: symbol,
+                            price: sellPrice,
+                            changes: changes,
                             prices: Bot.tradingPairs[symbol].sellPrices,
                             prec: Bot.tradingPairs[symbol].quotePrecision
                         });
@@ -145,7 +145,7 @@ let bot = function Bot() {
             console.log(e.body);
             Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
         }
-        
+
     };
 
     const sell = async function (symbol, price) {
@@ -181,31 +181,40 @@ let bot = function Bot() {
             console.log(e.body);
             Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
         }
-        
+
+    };
+
+    const prepOptions = function (opt) {
+        if (typeof opt === 'string') { // Pass json config filename
+            Bot.options = JSON.parse(file.readFileSync(opt));
+        } else Bot.options = opt;
+
+        if (typeof Bot.options.log === 'undefined') Bot.options.log = default_options.log;
+        if (typeof Bot.options.buySignal === 'undefined') Bot.options.buySignal = default_options.buySignal;
+        if (typeof Bot.options.sellSignal === 'undefined') Bot.options.sellSignal = default_options.sellSignal;
+        if (typeof Bot.options.test === 'undefined') Bot.options.test = default_options.test;
+        if (typeof Bot.options.ignore === 'undefined') Bot.options.ignore = default_options.ignore;
+        if (typeof Bot.options.orderSize === 'undefined') Bot.options.orderSize = default_options.orderSize;
+        if (typeof Bot.options.historyDepth === 'undefined') Bot.options.historyDepth = default_options.historyDepth;
+        if (typeof Bot.options.hidePricesForNumTicks === 'undefined') Bot.options.hidePricesForNumTicks = default_options.hidePricesForNumTicks;
+        if (typeof Bot.options.logPricesChanges === 'undefined') Bot.options.logPricesChanges = default_options.logPricesChanges;
     };
 
     return {
         options: function (opt) {
-            if (typeof opt === 'string') { // Pass json config filename
-                Bot.options = JSON.parse(file.readFileSync(opt));
-            } else Bot.options = opt;
+            prepOptions(opt);
+            return this;
+        },
 
-            if (typeof Bot.options.log === 'undefined') Bot.options.log = default_options.log;
-            if (typeof Bot.options.buySignal === 'undefined') Bot.options.buySignal = default_options.buySignal;
-            if (typeof Bot.options.sellSignal === 'undefined') Bot.options.sellSignal = default_options.sellSignal;
-            if (typeof Bot.options.test === 'undefined') Bot.options.test = default_options.test;
-            if (typeof Bot.options.ignore === 'undefined') Bot.options.ignore = default_options.ignore;
-            if (typeof Bot.options.orderSize === 'undefined') Bot.options.orderSize = default_options.orderSize;
-            if (typeof Bot.options.historyDepth === 'undefined') Bot.options.historyDepth = default_options.historyDepth;
-            if (typeof Bot.options.hidePricesForNumTicks === 'undefined') Bot.options.hidePricesForNumTicks = default_options.hidePricesForNumTicks;
-            if (typeof Bot.options.logPricesChanges === 'undefined') Bot.options.logPricesChanges = default_options.logPricesChanges;
-
-            if (!Bot.binance) {
+        connect: function (apikey, apisecret) {
+            try {
+                Bot.options.BINANCE_API_KEY = apikey;
+                Bot.options.BINANCE_API_SECRET = apisecret;
                 Bot.binance = new Binance().options({
                     APIKEY: Bot.options.BINANCE_API_KEY,
                     APISECRET: Bot.options.BINANCE_API_SECRET,
-                    useServerTime: true, 
-                    test: Bot.options.test, 
+                    useServerTime: true,
+                    test: Bot.options.test,
                     reconnect: true
                 });
 
@@ -213,41 +222,46 @@ let bot = function Bot() {
                 Bot.prevDay = util.promisify(Bot.binance.prevDay);
                 Bot.marketSell = util.promisify(Bot.binance.marketSell);
                 Bot.marketBuy = util.promisify(Bot.binance.marketBuy);
-            }
 
-            return this;
-        },
+                Bot.e.emit("connected");
+            } catch (e) {
+                console.log(e.body);
+                Bot.e.emit("error", e.body);
+            }
+        }, 
 
         start: async function () {
+            prepOptions(opt);
+
             if (Bot.options.quoteAsset) {
                 Bot.options.log(`Bot is started with ${Bot.options.quoteAsset} as a quote asset`);
 
                 let info = await Bot.exchangeInfo();
                 let ticker24h = await Bot.prevDay("");
                 let symbols = info.symbols
-                .filter(p => p.quoteAsset == Bot.options.quoteAsset && p.status == "TRADING")
-                .map(p => {
-                    return {
-                        symbol: p.symbol,
-                        baseAsset: p.baseAsset,
-                        baseAssetPrecision: p.baseAssetPrecision,
-                        quotePrecision: p.quotePrecision,
-                        stepSize: p.filters.filter(t => t.filterType == "LOT_SIZE")[0].stepSize,
-                        buyPrices: [],
-                        sellPrices: [],
-                        gaps: [],
-                        status: statuses.WAIT_BUY_SIGNAL,
-                        counter: Bot.options.hidePricesForNumTicks,
-                        boughtValue: 0,
-                        boughtPrice: 0,
-                        spentQuote: 0
-                    }
-                })
-                .filter(p => ticker24h.filter(t => t.symbol == p.symbol && t.quoteVolume > Bot.options.requiredDayQuoteVolume).length > 0)
-                .filter(p => Bot.options.ignore.filter(s => s == p.baseAsset).length == 0);
+                    .filter(p => p.quoteAsset == Bot.options.quoteAsset && p.status == "TRADING")
+                    .map(p => {
+                        return {
+                            symbol: p.symbol,
+                            baseAsset: p.baseAsset,
+                            baseAssetPrecision: p.baseAssetPrecision,
+                            quotePrecision: p.quotePrecision,
+                            stepSize: p.filters.filter(t => t.filterType == "LOT_SIZE")[0].stepSize,
+                            buyPrices: [],
+                            sellPrices: [],
+                            gaps: [],
+                            status: statuses.WAIT_BUY_SIGNAL,
+                            counter: Bot.options.hidePricesForNumTicks,
+                            boughtValue: 0,
+                            boughtPrice: 0,
+                            spentQuote: 0
+                        }
+                    })
+                    .filter(p => ticker24h.filter(t => t.symbol == p.symbol && t.quoteVolume > Bot.options.requiredDayQuoteVolume).length > 0)
+                    .filter(p => Bot.options.ignore.filter(s => s == p.baseAsset).length == 0);
 
                 symbols.forEach(s => {
-                    Bot.tradingPairs[s.symbol] = s; 
+                    Bot.tradingPairs[s.symbol] = s;
                 });
 
                 Bot.options.log("Trading pairs:", symbols.map(p => p.symbol));

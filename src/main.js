@@ -10,21 +10,7 @@ const ipc = electron.ipcMain
 
 let mainWindow
 
-const bot = new Bot().options({
-    BINANCE_API_KEY: process.env.BINANCE_API_KEY,
-    BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
-    test: true,
-    quoteAsset: "USDT",
-    orderSize: 12,
-    quoteBalance: 100 ,
-    requiredDayQuoteVolume: 1000000,
-    hidePricesForNumTicks: 5,
-    ignore: [],
-    historyDepth: [300, 300, 1],
-    buySignal: signals.buySignalByChanges,
-    sellSignal: signals.sellSignalByChanges,
-    logPricesChanges: true
-});
+const bot = new Bot().options({quoteAsset: "USDT"});
 
 app.on('ready', _ => {
     mainWindow = new BrowserWindow(config.getWindowSize())
@@ -45,13 +31,38 @@ app.on('ready', _ => {
     })
 
     bot.on("price-changes", data => {
-        let p = 10**data.prec;
-        data.avg = Math.round(common.avg(data.prices)*p)/p;
+        let p = 10 ** data.prec;
+        data.avg = Math.round(common.avg(data.prices) * p) / p;
         data.size = data.prices.length;
         mainWindow.webContents.send("price-changes", data);
     })
 
     mainWindow.webContents.on('dom-ready', _ => {
-        bot.start()
+        let binance = config.getBinanceSettings();
+
+        if (binance.apikey === "" && binance.apisecret === "") {
+            mainWindow.webContents.send("initial-start");
+        }
+
+
+        /* bot.start({
+            BINANCE_API_KEY: process.env.BINANCE_API_KEY,
+            BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
+            test: true,
+            quoteAsset: "USDT",
+            orderSize: 12,
+            quoteBalance: 100,
+            requiredDayQuoteVolume: 1000000,
+            hidePricesForNumTicks: 5,
+            ignore: [],
+            historyDepth: [300, 300, 1],
+            buySignal: signals.buySignalByChanges,
+            sellSignal: signals.sellSignalByChanges,
+            logPricesChanges: true
+        }) */
     })
+})
+
+ipc.on("try-connect", (evt, apisecret, apikey) => {
+    console.log(apisecret, apikey);
 })

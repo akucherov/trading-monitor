@@ -11,32 +11,132 @@
 
 <body>
     <div id="app">
-        <nav class="navbar sticky-top navbar-light bg-light">
-            <a class="navbar-brand" href="#">Account balance: 0.00 USDT</a>
-            <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
-            <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'paused'"><span data-feather="play"></span></a>
+        <nav class="navbar sticky-top navbar-light bg-light" v-if="state == 'connected' || state == 'started'">
+            <a class="navbar-brand" href="#">Account balance: {{balance}} {{quoteАsset}}</a>
+            <div class="form-group">
+                <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span
+                        data-feather="play"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor"><span data-feather="cloud-off"></span></a>
+            </div>
         </nav>
-        <div class="container" v-if="state == 'paused'">
-            <div class="row no-gutters">
-                <div class="col-12 col-lg-6">
-                    <form>
-                        <div class="form-group ">
-                            <label for="api-secret" class="col-form-label">API secret:</label>
-                            <input type="text" class="form-control" v-model="secret" id="api-secret">
-                            <label for="api-key" class="col-form-label">API key:</label>
-                            <input type="text" class="form-control" v-model="key" id="api-key">
+        <div class="container-fluid">
+            <div class="row justify-content-center vertical-center" v-if="state == 'processing'">
+                <div class="loader"></div>
+            </div>
+            <div class="row no-gutters vertical-center justify-content-center" v-if="state == 'disconnected'">
+                <div class="col-md-9">
+                    <form v-bind:class="{'was-validated' : validated}">
+                        <div class="form-group">
+                            <label for="api-secret" class="col-form-label">Binance API secret:</label>
+                            <input type="text" class="form-control" v-model="secret" id="api-secret" required>
+                            <div class="invalid-feedback">The field can't be empty.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="api-key" class="col-form-label">Binance API key:</label>
+                            <input type="text" class="form-control" v-model="key" id="api-key" required>
+                            <div class="invalid-feedback">The field can't be empty.</div>
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn btn-secondary float-right" v-on:click="connectMonitor">Connect</button>
                         </div>
                     </form>
                 </div>
             </div>
-        </div>
-        <div class="row no-gutters" v-if="state == 'started'">
-            <div class="col-sm-4 col-md-3 col-lg-2" v-for="p in pairs">
-                <div class="card mb-3 ticker text-white" v-bind:class="pairClass(p)">
-                    <div class="card-header">{{p.symbol}}<span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span></div>
-                    <div class="card-body">
-                        <h5 class="card-title">{{p.price}}</h5>
-                        <small v-if="p.changes !== undefined">AVG({{p.size}}):{{p.avg}}</small>
+            <div class="row no-gutters" v-if="state == 'connected'">
+                <div class="col">
+                    <form>
+                        <div class="form-group">
+                            <br />
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="quoteasset" id="qaBTC" value="BTC"
+                                    v-model="quoteАsset">
+                                <label class="form-check-label" for="qaBTC">BTC</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="quoteasset" id="qaETH" value="ETH"
+                                    v-model="quoteАsset">
+                                <label class="form-check-label" for="qaETH">ETH</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="quoteasset" id="qaUSDT" value="USDT"
+                                    v-model="quoteАsset">
+                                <label class="form-check-label" for="qaUSDT">USDT</label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="frequency" class="col-form-label">Updating frequency:</label>
+                                <input type="text" class="form-control" v-model="hidePricesForNumTicks" id="frequency">
+                            </div>
+                        </div>
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-6">
+                                <label for="buy-depth" class="col-form-label">Buy signal depth:</label>
+                                <input type="text" class="form-control" v-model="buyDepth" id="buy-depth">
+                            </div>
+                            <div class="form-group col-6 col-md-3">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="buyPercent" id="buy-percent">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-6">
+                                <label for="sell-depth" class="col-form-label">Sell signal depth:</label>
+                                <input type="text" class="form-control" v-model="sellDepth" id="sell-depth">
+                            </div>
+                            <div class="form-group col-6 col-md-3">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="sellPercent" id="sell-percent">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <label for="order-size" class="col-form-label">Order size:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="orderSize" id="order-size">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">{{quoteАsset}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row align-items-end">
+                            <div class="form-group col-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="test" id="test" v-model="test">
+                                    <label class="form-check-label" for="test">Test</label>
+                                </div>
+                            </div>
+                            <div class="form-group col-9 col-md-6" v-if="test">
+                                <label for="balance" class="col-form-label">Account balance:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="balance" id="balance">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">{{quoteАsset}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="row no-gutters" v-if="state == 'started'">
+                <div class="col-sm-4 col-md-3 col-lg-2" v-for="p in pairs">
+                    <div class="card mb-3 ticker text-white" v-bind:class="pairClass(p)">
+                        <div class="card-header">{{p.symbol}}<span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span></div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{p.price}}</h5>
+                            <small v-if="p.changes !== undefined">AVG({{p.size}}):{{p.avg}}</small>
+                        </div>
                     </div>
                 </div>
             </div>

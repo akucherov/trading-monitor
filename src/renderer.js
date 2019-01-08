@@ -6,10 +6,20 @@ const Vue = require('./vendors/vue.js');
 let app = new Vue({
     el: '#app',
     data: {
+        validated: false,
         secret: "",
         key: "",
-        state: "paused",
-        pairs: []
+        state: "processing",
+        pairs: [],
+        test: true,
+        quoteАsset: "USDT",
+        hidePricesForNumTicks: 10,
+        buyDepth: 100,
+        buyPercent: 1,
+        sellDepth: 100,
+        sellPercent: 0.5,
+        orderSize: 12,
+        balance: 100
     },
 
     methods: {
@@ -32,7 +42,22 @@ let app = new Vue({
         },
 
         pauseMonitor: function () {
-            this.state = "paused";
+            this.state = "connected";
+        },
+
+        connectMonitor: function() {
+            if (this.secret === "" || this.key === "") {
+                this.validated = true;
+            } else {
+                this.validated = false;
+                this.state = "processing";
+                ipc.send("try-connect", this.secret, this.key);
+            }
+            
+        },
+
+        disconnectMonitor: function() {
+            this.state = "disconnected";
         }
     }
 })
@@ -50,4 +75,8 @@ ipc.on("price-changes", (evt, data) => {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
         if (index >= 0) app.$set(app.pairs, index, data);
     }
+})
+
+ipc.on("initial-start", (evt) => {
+    app.state = "disconnected";
 })

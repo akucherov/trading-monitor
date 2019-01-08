@@ -21,13 +21,13 @@ module.exports = {
 
     getBinanceSettings: function() {
         return {
-            secret: store.get(BINANCE_API_SECRET, ""),
-            key: store.get(BINANCE_API_KEY, "")
+            apisecret: store.get(BINANCE_API_SECRET, ""),
+            apikey: store.get(BINANCE_API_KEY, "")
         }
     },
 
-    setBinanceSettings: function(secret, key) {
-        store.set(BINANCE_API_SECRET, secret);
-        store.set(BINANCE_API_KEY, key);
+    setBinanceSettings: function(apisecret, apikey) {
+        store.set(BINANCE_API_SECRET, apisecret);
+        store.set(BINANCE_API_KEY, apikey);
     }
 }
