@@ -26,8 +26,8 @@ module.exports = {
         }
     },
 
-    setBinanceSettings: function(apisecret, apikey) {
-        store.set(BINANCE_API_SECRET, apisecret);
+    setBinanceSettings: function(apikey, apisecret) {
         store.set(BINANCE_API_KEY, apikey);
+        store.set(BINANCE_API_SECRET, apisecret);
     }
 }

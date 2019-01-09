@@ -10,7 +10,7 @@ const ipc = electron.ipcMain
 
 let mainWindow
 
-const bot = new Bot().options({quoteAsset: "USDT"});
+const bot = new Bot().options({ quoteAsset: "USDT" });
 
 app.on('ready', _ => {
     mainWindow = new BrowserWindow(config.getWindowSize())
@@ -42,6 +42,16 @@ app.on('ready', _ => {
 
         if (binance.apikey === "" && binance.apisecret === "") {
             mainWindow.webContents.send("initial-start");
+        } else {
+            bot.connect(binance.apikey, binance.apisecret);
+            bot.balance()
+                .then(b => {
+                    mainWindow.webContents.send("connected", b, binance.apikey, binance.apisecret);
+                })
+                .catch(e => {
+                    console.log(e);
+                    mainWindow.webContents.send("connection-error", JSON.parse(e.body), binance.apikey, binance.apisecret);
+                })
         }
 
 
@@ -63,6 +73,28 @@ app.on('ready', _ => {
     })
 })
 
-ipc.on("try-connect", (evt, apisecret, apikey) => {
-    console.log(apisecret, apikey);
+ipc.on("try-connect", (evt, apikey, apisecret) => {
+    bot.connect(apikey, apisecret);
+    bot.balance()
+        .then(b => {
+            config.setBinanceSettings(apikey, apisecret);
+            mainWindow.webContents.send("connected", b, apikey, apisecret);
+        })
+        .catch(e => {
+            console.log(e);
+            mainWindow.webContents.send("connection-error", JSON.parse(e.body), apikey, apisecret);
+        })
+})
+
+ipc.on("try-start", (evt, options) => {
+    bot.start(Object.assign(options, 
+        {
+            buySignal: signals.buySignalByChanges,
+            sellSignal: signals.sellSignalByChanges
+        }));
+})
+
+ipc.on("try-stop", _ => {
+    bot.stop();
+    mainWindow.webContents.send("stopped");
 })

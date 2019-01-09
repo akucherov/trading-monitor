@@ -26,6 +26,7 @@ let bot = function Bot() {
     Bot.binance = undefined;
     Bot.exchangeInfo = undefined;
     Bot.prevDay = undefined;
+    Bot.balance = undefined;
     Bot.buyPriceMaxChanges = undefined;
     Bot.marketSell = undefined;
     Bot.marketBuy = undefined;
@@ -206,8 +207,7 @@ let bot = function Bot() {
             return this;
         },
 
-        connect: function (apikey, apisecret) {
-            try {
+        connect: function (apikey, apisecret) {            
                 Bot.options.BINANCE_API_KEY = apikey;
                 Bot.options.BINANCE_API_SECRET = apisecret;
                 Bot.binance = new Binance().options({
@@ -219,19 +219,20 @@ let bot = function Bot() {
                 });
 
                 Bot.exchangeInfo = util.promisify(Bot.binance.exchangeInfo);
+                Bot.balance = util.promisify(Bot.binance.balance);
                 Bot.prevDay = util.promisify(Bot.binance.prevDay);
                 Bot.marketSell = util.promisify(Bot.binance.marketSell);
                 Bot.marketBuy = util.promisify(Bot.binance.marketBuy);
-
-                Bot.e.emit("connected");
-            } catch (e) {
-                console.log(e.body);
-                Bot.e.emit("error", e.body);
-            }
         }, 
 
-        start: async function () {
+        start: async function (opt) {
             prepOptions(opt);
+
+            Bot.binance.options({
+                APIKEY: Bot.options.BINANCE_API_KEY,
+                APISECRET: Bot.options.BINANCE_API_SECRET,
+                reconnect: true
+            });
 
             if (Bot.options.quoteAsset) {
                 Bot.options.log(`Bot is started with ${Bot.options.quoteAsset} as a quote asset`);
@@ -267,9 +268,31 @@ let bot = function Bot() {
                 Bot.options.log("Trading pairs:", symbols.map(p => p.symbol));
                 Bot.e.emit("trading-pairs", symbols.map(p => p.symbol));
 
-                Bot.binance.websockets.depthCache(symbols.map(p => p.symbol), monitor);
+                if (symbols.length > 0) Bot.binance.websockets.depthCache(symbols.map(p => p.symbol), monitor);
             }
         },
+
+        stop: function () {
+            Bot.binance.options({
+                APIKEY: Bot.options.BINANCE_API_KEY,
+                APISECRET: Bot.options.BINANCE_API_SECRET,
+                reconnect: false
+            });
+
+            let endpoints = Bot.binance.websockets.subscriptions();
+            for ( let endpoint in endpoints ) {
+	            Bot.binance.websockets.terminate(endpoint);
+            }
+
+            Bot.tradingPairs = new Array();
+        },
+
+        balance: async function() {
+            let balances = await Bot.balance();
+            return Object.keys(balances)
+                .filter(c => c === "BTC" || c === "ETH" || c === "USDT")
+                .map(c => { return {currency: c, balance: parseFloat(balances[c].available)}});
+        }, 
 
         on: function (e, f) {
             Bot.e.on(e, f);

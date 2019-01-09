@@ -12,12 +12,11 @@
 <body>
     <div id="app">
         <nav class="navbar sticky-top navbar-light bg-light" v-if="state == 'connected' || state == 'started'">
-            <a class="navbar-brand" href="#">Account balance: {{balance}} {{quoteАsset}}</a>
+            <a class="navbar-brand" href="#">Account balance: {{getBalance}} {{quoteAsset}}</a>
             <div class="form-group">
                 <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span
-                        data-feather="play"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor"><span data-feather="cloud-off"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span data-feather="play"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor" v-if="state == 'connected'"><span data-feather="cloud-off"></span></a>
             </div>
         </nav>
         <div class="container-fluid">
@@ -27,14 +26,17 @@
             <div class="row no-gutters vertical-center justify-content-center" v-if="state == 'disconnected'">
                 <div class="col-md-9">
                     <form v-bind:class="{'was-validated' : validated}">
-                        <div class="form-group">
-                            <label for="api-secret" class="col-form-label">Binance API secret:</label>
-                            <input type="text" class="form-control" v-model="secret" id="api-secret" required>
-                            <div class="invalid-feedback">The field can't be empty.</div>
+                        <div class="alert alert-danger" role="alert" v-if="error">
+                            <strong>Error code: {{errorCode}}</strong> / {{errorMessage}}
                         </div>
                         <div class="form-group">
                             <label for="api-key" class="col-form-label">Binance API key:</label>
                             <input type="text" class="form-control" v-model="key" id="api-key" required>
+                            <div class="invalid-feedback">The field can't be empty.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="api-secret" class="col-form-label">Binance API secret:</label>
+                            <input type="password" class="form-control" v-model="secret" id="api-secret" required>
                             <div class="invalid-feedback">The field can't be empty.</div>
                         </div>
                         <div class="form-group">
@@ -46,38 +48,43 @@
             <div class="row no-gutters" v-if="state == 'connected'">
                 <div class="col">
                     <form>
+                        <div class="alert alert-danger" role="alert" v-if="error">
+                            {{errorMessage}}
+                        </div>
                         <div class="form-group">
                             <br />
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="quoteasset" id="qaBTC" value="BTC"
-                                    v-model="quoteАsset">
+                                    v-model="quoteAsset">
                                 <label class="form-check-label" for="qaBTC">BTC</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="quoteasset" id="qaETH" value="ETH"
-                                    v-model="quoteАsset">
+                                    v-model="quoteAsset">
                                 <label class="form-check-label" for="qaETH">ETH</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="quoteasset" id="qaUSDT" value="USDT"
-                                    v-model="quoteАsset">
+                                    v-model="quoteAsset">
                                 <label class="form-check-label" for="qaUSDT">USDT</label>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group col-md-4">
-                                <label for="frequency" class="col-form-label">Updating frequency:</label>
-                                <input type="text" class="form-control" v-model="hidePricesForNumTicks" id="frequency">
+                                <label for="dayVolume" class="col-form-label">Required a day volume:</label>
+                                <input type="number" min=0 step=1 class="form-control" v-model.number="requiredDayQuoteVolume"
+                                    id="dayVolume">
                             </div>
                         </div>
                         <div class="form-row align-items-end">
                             <div class="form-group col-6">
                                 <label for="buy-depth" class="col-form-label">Buy signal depth:</label>
-                                <input type="text" class="form-control" v-model="buyDepth" id="buy-depth">
+                                <input type="number" min=1 step=1 class="form-control" v-model.number="buyDepth" id="buy-depth">
                             </div>
                             <div class="form-group col-6 col-md-3">
                                 <div class="input-group">
-                                    <input type="text" class="form-control" v-model="buyPercent" id="buy-percent">
+                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="buyPercent"
+                                        id="buy-percent">
                                     <div class="input-group-append">
                                         <span class="input-group-text">%</span>
                                     </div>
@@ -87,11 +94,12 @@
                         <div class="form-row align-items-end">
                             <div class="form-group col-6">
                                 <label for="sell-depth" class="col-form-label">Sell signal depth:</label>
-                                <input type="text" class="form-control" v-model="sellDepth" id="sell-depth">
+                                <input type="number" min=1 step=1 class="form-control" v-model.number="sellDepth" id="sell-depth">
                             </div>
                             <div class="form-group col-6 col-md-3">
                                 <div class="input-group">
-                                    <input type="text" class="form-control" v-model="sellPercent" id="sell-percent">
+                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="sellPercent"
+                                        id="sell-percent">
                                     <div class="input-group-append">
                                         <span class="input-group-text">%</span>
                                     </div>
@@ -102,9 +110,10 @@
                             <div class="form-group col-md-4">
                                 <label for="order-size" class="col-form-label">Order size:</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control" v-model="orderSize" id="order-size">
+                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="orderSize"
+                                        id="order-size">
                                     <div class="input-group-append">
-                                        <span class="input-group-text">{{quoteАsset}}</span>
+                                        <span class="input-group-text">{{quoteAsset}}</span>
                                     </div>
                                 </div>
                             </div>
@@ -119,9 +128,10 @@
                             <div class="form-group col-9 col-md-6" v-if="test">
                                 <label for="balance" class="col-form-label">Account balance:</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control" v-model="balance" id="balance">
+                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="balance"
+                                        id="balance">
                                     <div class="input-group-append">
-                                        <span class="input-group-text">{{quoteАsset}}</span>
+                                        <span class="input-group-text">{{quoteAsset}}</span>
                                     </div>
                                 </div>
                             </div>

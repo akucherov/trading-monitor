@@ -6,20 +6,41 @@ const Vue = require('./vendors/vue.js');
 let app = new Vue({
     el: '#app',
     data: {
+        error: false,
+        errorCode: "",
+        errorMessage: "",
         validated: false,
         secret: "",
         key: "",
         state: "processing",
         pairs: [],
         test: true,
-        quoteАsset: "USDT",
-        hidePricesForNumTicks: 10,
+        quoteAsset: "USDT",
+        requiredDayQuoteVolume: 10000000,
+        hidePricesForNumTicks: 0,
         buyDepth: 100,
         buyPercent: 1,
         sellDepth: 100,
         sellPercent: 0.5,
         orderSize: 12,
-        balance: 100
+        balance: 100,
+        binanceBalance: []
+    },
+
+    computed: {
+        getBalance: function() {
+            if (!this.test) {
+                let a = this.quoteAsset;
+                let c = this.binanceBalance.filter(b => b.currency === a);
+                if (c.length > 0) {
+                    return c[0].balance
+                } else {
+                    return 0
+                }
+            } else {
+                return this.balance;
+            }
+        }
     },
 
     methods: {
@@ -38,20 +59,42 @@ let app = new Vue({
         },
 
         startMonitor: function () {
-            this.state = "started";
+            if (this.orderSize >= this.getBalance) {
+                this.error = true;
+                this.errorMessage = "An order size should be less then the balance."
+            } else {
+                this.error = false;
+                this.state = "processing";
+                let options = {
+                    test: this.test,
+                    quoteAsset: this.quoteAsset,
+                    orderSize: this.orderSize,
+                    quoteBalance: this.getBalance, 
+                    requiredDayQuoteVolume: this.requiredDayQuoteVolume,
+                    hidePricesForNumTicks: this.hidePricesForNumTicks,
+                    ignore: [],
+                    historyDepth: [this.buyDepth, this.sellDepth, 1],
+                    logPricesChanges: true,
+                    buySignalOptions: {percent: this.buyPercent},
+                    sellSignalOptions: {percent: this.sellPercent}
+                };
+                ipc.send("try-start", options);
+            }  
         },
 
         pauseMonitor: function () {
-            this.state = "connected";
+            ipc.send("try-stop");
+            this.state = "processing";
         },
 
         connectMonitor: function() {
+            this.error = false;
             if (this.secret === "" || this.key === "") {
                 this.validated = true;
             } else {
                 this.validated = false;
                 this.state = "processing";
-                ipc.send("try-connect", this.secret, this.key);
+                ipc.send("try-connect", this.key, this.secret);
             }
             
         },
@@ -63,10 +106,16 @@ let app = new Vue({
 })
 
 ipc.on("trading-pairs", (evt, symbols) => {
-    if (symbols) {
+    if (symbols && symbols.length > 0) {
+        app.pairs = [];
         symbols.forEach(element => {
             app.pairs.push({symbol: element, price: undefined, changes: undefined})       
         });
+        app.state = "started";
+    } else {
+        app.error = true;
+        app.errorMessage = "No pairs are found.";
+        app.state = "connected";
     }
 })
 
@@ -78,5 +127,25 @@ ipc.on("price-changes", (evt, data) => {
 })
 
 ipc.on("initial-start", (evt) => {
+    app.state = "disconnected";
+})
+
+ipc.on("connected", (evt, balance, apikey, apisecret) => {
+    app.binanceBalance = balance;
+    app.key = apikey;
+    app.secret = apisecret;
+    app.state = "connected";
+})
+
+ipc.on("stopped", evt => {
+    app.state = "connected";
+})
+
+ipc.on("connection-error", (evt, error, apikey, apisecret) => {
+    app.error = true;
+    app.errorCode = error.code;
+    app.errorMessage = error.msg;
+    app.key = apikey;
+    app.secret = apisecret;
     app.state = "disconnected";
 })
