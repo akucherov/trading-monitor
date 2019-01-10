@@ -5,6 +5,21 @@ const WINDOW_HEIGHT = "window.height"
 const WINDOW_WIDTH = "window.width"
 const BINANCE_API_SECRET = "binance.api.secret"
 const BINANCE_API_KEY = "binance.api.key"
+const OPTIONS = "options"
+
+const defaultOpt = {
+    test: true,
+    quoteAsset: "USDT",
+    orderSize: 20,
+    quoteBalance: 100, 
+    requiredDayQuoteVolume: 1000000,
+    hidePricesForNumTicks: 0,
+    ignore: [],
+    historyDepth: [300, 300, 1],
+    logPricesChanges: true,
+    buySignalOptions: {percent: 1},
+    sellSignalOptions: {percent: 0.5}
+}
 
 module.exports = {
     getWindowSize: function() {
@@ -29,5 +44,13 @@ module.exports = {
     setBinanceSettings: function(apikey, apisecret) {
         store.set(BINANCE_API_KEY, apikey);
         store.set(BINANCE_API_SECRET, apisecret);
+    },
+
+    getOptions: function() {        
+        return store.get(OPTIONS, defaultOpt);
+    },
+
+    setOptions: function(opt) {
+        store.set(OPTIONS, opt)
     }
 }

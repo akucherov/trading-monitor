@@ -95,6 +95,7 @@ let bot = function Bot() {
                 && Bot.options.buySignal(
                     symbol,
                     Bot.options.orderSize,
+                    Bot.options.buySignalOptions,
                     buyPrice,
                     sellPrice,
                     Bot.tradingPairs[symbol].buyPrices,
@@ -106,6 +107,7 @@ let bot = function Bot() {
                 && Bot.options.sellSignal(
                     symbol,
                     Bot.options.orderSize,
+                    Bot.options.sellSignalOptions,
                     buyPrice,
                     sellPrice,
                     Bot.tradingPairs[symbol].buyPrices,
@@ -125,14 +127,19 @@ let bot = function Bot() {
                 Bot.tradingPairs[symbol].stepSize,
                 Bot.tradingPairs[symbol].quotePrecision);
             Bot.options.log(`Try to buy ${value} ${Bot.tradingPairs[symbol].baseAsset}`);
-            let response = await Bot.marketBuy(symbol, value);
-            if (response.status == "FILLED") {
-                value = common.valueByFills(response.fills);
-                Bot.tradingPairs[symbol].spentQuote = response.cummulativeQuoteQty;
-                Bot.options.quoteBalance -= response.cummulativeQuoteQty;
-                Bot.tradingPairs[symbol].boughtPrice = common.round(
-                    response.cummulativeQuoteQty / response.executedQty,
-                    Bot.tradingPairs[symbol].quotePrecision)
+            if (!Bot.options.test) {
+                let response = await Bot.marketBuy(symbol, value);
+                if (response.status == "FILLED") {
+                    value = common.valueByFills(response.fills);
+                    Bot.tradingPairs[symbol].spentQuote = response.cummulativeQuoteQty;
+                    Bot.options.quoteBalance -= response.cummulativeQuoteQty;
+                    Bot.tradingPairs[symbol].boughtPrice = common.round(
+                        response.cummulativeQuoteQty / response.executedQty,
+                        Bot.tradingPairs[symbol].quotePrecision)
+                } else {
+                    console.log(response);
+                    Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
+                }
             } else {
                 Bot.tradingPairs[symbol].spentQuote = Bot.options.orderSize;
                 Bot.options.quoteBalance -= Bot.options.orderSize;
@@ -142,8 +149,17 @@ let bot = function Bot() {
             Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
             Bot.options.log(`${value} ${Bot.tradingPairs[symbol].baseAsset} has been bought for ${Bot.tradingPairs[symbol].boughtPrice} ${Bot.options.quoteAsset}`);
             Bot.options.log(`${Bot.tradingPairs[symbol].spentQuote} ${Bot.options.quoteAsset} were spent`)
+            Bot.e.emit("asset-isbought",
+                {
+                    symbol: symbol,
+                    price: Bot.tradingPairs[symbol].boughtPrice,
+                    value: value,
+                    baseAsset: Bot.tradingPairs[symbol].baseAsset,
+                    quoteAsset: Bot.options.quoteAsset,
+                    spentQuote: Bot.tradingPairs[symbol].spentQuote
+                });
         } catch (e) {
-            console.log(e.body);
+            console.log(e);
             Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
         }
 
@@ -159,12 +175,18 @@ let bot = function Bot() {
             let response = await Bot.marketSell(symbol, value);
             let sellPrice = price;
             let earnedQuote = 0;
-            if (response.status == "FILLED") {
-                earnedQuote = response.cummulativeQuoteQty - common.commisionByFills(response.fills);
-                Bot.options.quoteBalance += earnedQuote;
-                sellPrice = common.round(
-                    response.cummulativeQuoteQty / response.executedQty,
-                    Bot.tradingPairs[symbol].quotePrecision)
+            if (!Bot.options.test) {
+                let response = await Bot.marketSell(symbol, value);
+                if (response.status == "FILLED") {
+                    earnedQuote = response.cummulativeQuoteQty - common.commisionByFills(response.fills);
+                    Bot.options.quoteBalance += earnedQuote;
+                    sellPrice = common.round(
+                        response.cummulativeQuoteQty / response.executedQty,
+                        Bot.tradingPairs[symbol].quotePrecision)
+                } else {
+                    console.log(response);
+                    Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
+                }
             } else {
                 earnedQuote = common.round(value * price, Bot.tradingPairs[symbol].quotePrecision);
                 Bot.options.quoteBalance += earnedQuote;
@@ -178,8 +200,18 @@ let bot = function Bot() {
                 earnedQuote - Bot.tradingPairs[symbol].spentQuote,
                 Bot.tradingPairs[symbol].quotePrecision);
             Bot.options.log(`Your profit is ${profit} ${Bot.options.quoteAsset}`);
+            Bot.e.emit("asset-issold",
+                {
+                    symbol: symbol,
+                    price: Bot.tradingPairs[symbol].sellPrice,
+                    value: value,
+                    baseAsset: Bot.tradingPairs[symbol].baseAsset,
+                    quoteAsset: Bot.options.quoteAsset,
+                    earnedQuote: earnedQuote,
+                    profit: profit
+                });
         } catch (e) {
-            console.log(e.body);
+            console.log(e);
             Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
         }
 
@@ -207,23 +239,23 @@ let bot = function Bot() {
             return this;
         },
 
-        connect: function (apikey, apisecret) {            
-                Bot.options.BINANCE_API_KEY = apikey;
-                Bot.options.BINANCE_API_SECRET = apisecret;
-                Bot.binance = new Binance().options({
-                    APIKEY: Bot.options.BINANCE_API_KEY,
-                    APISECRET: Bot.options.BINANCE_API_SECRET,
-                    useServerTime: true,
-                    test: Bot.options.test,
-                    reconnect: true
-                });
+        connect: function (apikey, apisecret) {
+            Bot.options.BINANCE_API_KEY = apikey;
+            Bot.options.BINANCE_API_SECRET = apisecret;
+            Bot.binance = new Binance().options({
+                APIKEY: Bot.options.BINANCE_API_KEY,
+                APISECRET: Bot.options.BINANCE_API_SECRET,
+                useServerTime: true,
+                test: Bot.options.test,
+                reconnect: true
+            });
 
-                Bot.exchangeInfo = util.promisify(Bot.binance.exchangeInfo);
-                Bot.balance = util.promisify(Bot.binance.balance);
-                Bot.prevDay = util.promisify(Bot.binance.prevDay);
-                Bot.marketSell = util.promisify(Bot.binance.marketSell);
-                Bot.marketBuy = util.promisify(Bot.binance.marketBuy);
-        }, 
+            Bot.exchangeInfo = util.promisify(Bot.binance.exchangeInfo);
+            Bot.balance = util.promisify(Bot.binance.balance);
+            Bot.prevDay = util.promisify(Bot.binance.prevDay);
+            Bot.marketSell = util.promisify(Bot.binance.marketSell);
+            Bot.marketBuy = util.promisify(Bot.binance.marketBuy);
+        },
 
         start: async function (opt) {
             prepOptions(opt);
@@ -280,19 +312,19 @@ let bot = function Bot() {
             });
 
             let endpoints = Bot.binance.websockets.subscriptions();
-            for ( let endpoint in endpoints ) {
-	            Bot.binance.websockets.terminate(endpoint);
+            for (let endpoint in endpoints) {
+                Bot.binance.websockets.terminate(endpoint);
             }
 
             Bot.tradingPairs = new Array();
         },
 
-        balance: async function() {
+        balance: async function () {
             let balances = await Bot.balance();
             return Object.keys(balances)
                 .filter(c => c === "BTC" || c === "ETH" || c === "USDT")
-                .map(c => { return {currency: c, balance: parseFloat(balances[c].available)}});
-        }, 
+                .map(c => { return { currency: c, balance: parseFloat(balances[c].available) } });
+        },
 
         on: function (e, f) {
             Bot.e.on(e, f);

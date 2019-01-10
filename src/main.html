@@ -141,12 +141,15 @@
             </div>
             <div class="row no-gutters" v-if="state == 'started'">
                 <div class="col-sm-4 col-md-3 col-lg-2" v-for="p in pairs">
-                    <div class="card mb-3 ticker text-white" v-bind:class="pairClass(p)">
-                        <div class="card-header">{{p.symbol}}<span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span></div>
+                    <div class="card mb-3 ticker border-dark">
+                        <div class="card-header border-dark text-white" v-bind:class="pairClass(p)">{{p.symbol}}
+                            <span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span>
+                        </div>
                         <div class="card-body">
                             <h5 class="card-title">{{p.price}}</h5>
                             <small v-if="p.changes !== undefined">AVG({{p.size}}):{{p.avg}}</small>
                         </div>
+                        <div class="card-footer border-dark bg-light">no orders yet</div>
                     </div>
                 </div>
             </div>

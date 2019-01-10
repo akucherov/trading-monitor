@@ -130,10 +130,24 @@ ipc.on("initial-start", (evt) => {
     app.state = "disconnected";
 })
 
-ipc.on("connected", (evt, balance, apikey, apisecret) => {
+ipc.on("connected", (evt, balance, apikey, apisecret, options) => {
     app.binanceBalance = balance;
     app.key = apikey;
     app.secret = apisecret;
+
+    if (options) {
+        app.test = options.test;
+        app.quoteAsset = options.quoteAsset;
+        app.orderSize = options.orderSize;
+        app.balance = options.quoteBalance;
+        app.requiredDayQuoteVolume = options.requiredDayQuoteVolume;
+        app.hidePricesForNumTicks = options.hidePricesForNumTicks;
+        app.buyDepth = options.historyDepth[0];
+        app.sellDepth = options.historyDepth[1];
+        app.buyPercent = options.buySignalOptions.percent;
+        app.sellPercent = options.sellSignalOptions.percent;
+    }
+
     app.state = "connected";
 })
 

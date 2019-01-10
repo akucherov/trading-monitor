@@ -39,37 +39,21 @@ app.on('ready', _ => {
 
     mainWindow.webContents.on('dom-ready', _ => {
         let binance = config.getBinanceSettings();
+        let options = config.getOptions();
 
         if (binance.apikey === "" && binance.apisecret === "") {
-            mainWindow.webContents.send("initial-start");
+            mainWindow.webContents.send("initial-start", options);
         } else {
             bot.connect(binance.apikey, binance.apisecret);
             bot.balance()
                 .then(b => {
-                    mainWindow.webContents.send("connected", b, binance.apikey, binance.apisecret);
+                    mainWindow.webContents.send("connected", b, binance.apikey, binance.apisecret, options);
                 })
                 .catch(e => {
                     console.log(e);
                     mainWindow.webContents.send("connection-error", JSON.parse(e.body), binance.apikey, binance.apisecret);
                 })
         }
-
-
-        /* bot.start({
-            BINANCE_API_KEY: process.env.BINANCE_API_KEY,
-            BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
-            test: true,
-            quoteAsset: "USDT",
-            orderSize: 12,
-            quoteBalance: 100,
-            requiredDayQuoteVolume: 1000000,
-            hidePricesForNumTicks: 5,
-            ignore: [],
-            historyDepth: [300, 300, 1],
-            buySignal: signals.buySignalByChanges,
-            sellSignal: signals.sellSignalByChanges,
-            logPricesChanges: true
-        }) */
     })
 })
 
@@ -92,6 +76,8 @@ ipc.on("try-start", (evt, options) => {
             buySignal: signals.buySignalByChanges,
             sellSignal: signals.sellSignalByChanges
         }));
+        
+    config.setOptions(options);
 })
 
 ipc.on("try-stop", _ => {
