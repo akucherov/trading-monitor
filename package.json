@@ -5,7 +5,8 @@
   "description": "",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "rimraf Trading* && electron-packager . --platform=darwin --arch=x64"
   },
   "repository": {
     "type": "git",
@@ -15,7 +16,9 @@
   "author": "Andrei Kucherov",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^4.0.0"
+    "electron": "^4.0.0",
+    "electron-packager": "^13.0.1",
+    "rimraf": "^2.6.3"
   },
   "dependencies": {
     "bootstrap": "^4.1.3",

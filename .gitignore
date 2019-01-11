@@ -2,6 +2,7 @@
 
 # compiled output
 /build/*
+/Trading monitor-darwin-x64
 
 # dependencies
 /node_modules

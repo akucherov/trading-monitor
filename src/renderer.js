@@ -24,11 +24,13 @@ let app = new Vue({
         sellPercent: 0.5,
         orderSize: 12,
         balance: 100,
-        binanceBalance: []
+        prevBalance: 100,
+        binanceBalance: [],
+        profit: 0
     },
 
     computed: {
-        getBalance: function() {
+        getAccBalance: function() {
             if (!this.test) {
                 let a = this.quoteAsset;
                 let c = this.binanceBalance.filter(b => b.currency === a);
@@ -38,7 +40,7 @@ let app = new Vue({
                     return 0
                 }
             } else {
-                return this.balance;
+                return 0;
             }
         }
     },
@@ -58,10 +60,24 @@ let app = new Vue({
             }
         },
 
+        pairFooterClass: function (p) {
+            if (p && p.order) {
+                if (p.order.type == 'buy') {
+                    return "bg-warning"
+                } else if (p.order.profit >= 0) {
+                    return ["bg-success", "text-white"]
+                } else {
+                    return ["bg-danger", "text-white"]
+                }
+            } else {
+                return "bg-light"
+            }
+        },
+
         startMonitor: function () {
-            if (this.orderSize >= this.getBalance) {
+            if (this.orderSize >= this.balance) {
                 this.error = true;
-                this.errorMessage = "An order size should be less then the balance."
+                this.errorMessage = "An order size should be less then the trading balance."
             } else {
                 this.error = false;
                 this.state = "processing";
@@ -69,7 +85,7 @@ let app = new Vue({
                     test: this.test,
                     quoteAsset: this.quoteAsset,
                     orderSize: this.orderSize,
-                    quoteBalance: this.getBalance, 
+                    quoteBalance: this.balance, 
                     requiredDayQuoteVolume: this.requiredDayQuoteVolume,
                     hidePricesForNumTicks: this.hidePricesForNumTicks,
                     ignore: [],
@@ -78,6 +94,8 @@ let app = new Vue({
                     buySignalOptions: {percent: this.buyPercent},
                     sellSignalOptions: {percent: this.sellPercent}
                 };
+                this.profit = 0;
+                this.prevBalance = this.balance;
                 ipc.send("try-start", options);
             }  
         },
@@ -122,7 +140,60 @@ ipc.on("trading-pairs", (evt, symbols) => {
 ipc.on("price-changes", (evt, data) => {
     if (data) {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
-        if (index >= 0) app.$set(app.pairs, index, data);
+        if (index >= 0) {
+            let info = app.pairs[index];
+            info.price = data.price;
+            info.changes = data.changes;
+            info.avg = data.avg;
+            info.size = data.size; 
+            info.prec = data.prec;
+            if (info.order && info.order.type == "buy") {
+                let p = 10 ** data.prec;
+                info.order.quote = Math.round(info.order.value * info.price * p) / p;
+            }
+            app.$set(app.pairs, index, info);
+        }
+    }
+})
+
+ipc.on("asset-isbought", (evt, data) => {
+    if (data) {
+        let index = app.pairs.findIndex(e => e.symbol === data.symbol);
+        if (index >= 0) {
+            let info = app.pairs[index];
+            let order = {
+                type: "buy",
+                value: data.value,
+                price: data.price,
+                asset: data.baseAsset,
+                quote: data.spentQuote
+            }
+            info.order = order;
+            app.$set(app.pairs, index, info);
+            let p = 10 ** info.prec;
+            app.balance = Math.round(data.balance * p)/p;
+        }
+    }
+})
+
+ipc.on("asset-issold", (evt, data) => {
+    if (data) {
+        let index = app.pairs.findIndex(e => e.symbol === data.symbol);
+        if (index >= 0) {
+            let info = app.pairs[index];
+            let order = {
+                type: "sell",
+                value: data.value,
+                price: data.price,
+                asset: data.quoteAsset,
+                profit: data.profit
+            }
+            info.order = order;
+            app.$set(app.pairs, index, info);
+            let p = 10 ** info.prec;
+            app.balance = Math.round(data.balance * p)/p;
+            app.profit = Math.round((app.profit + data.profit) * p)/p;
+        }
     }
 })
 
@@ -152,6 +223,7 @@ ipc.on("connected", (evt, balance, apikey, apisecret, options) => {
 })
 
 ipc.on("stopped", evt => {
+    app.balance = app.prevBalance;
     app.state = "connected";
 })
 

@@ -20,7 +20,7 @@ app.on('ready', _ => {
     mainWindow.on('closed', _ => {
         mainWindow = null
     })
-
+    
     mainWindow.on('resize', _ => {
         let size = mainWindow.getSize();
         config.setWindowSize(size[0], size[1]);
@@ -35,6 +35,14 @@ app.on('ready', _ => {
         data.avg = Math.round(common.avg(data.prices) * p) / p;
         data.size = data.prices.length;
         mainWindow.webContents.send("price-changes", data);
+    })
+
+    bot.on("asset-isbought", data => {
+        mainWindow.webContents.send("asset-isbought", data);
+    })
+
+    bot.on("asset-issold", data => {
+        mainWindow.webContents.send("asset-issold", data);
     })
 
     mainWindow.webContents.on('dom-ready', _ => {
@@ -55,6 +63,10 @@ app.on('ready', _ => {
                 })
         }
     })
+})
+
+app.on('window-all-closed', () => {
+    app.quit()
 })
 
 ipc.on("try-connect", (evt, apikey, apisecret) => {

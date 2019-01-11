@@ -92,6 +92,7 @@ let bot = function Bot() {
             Bot.tradingPairs[symbol].gaps.length == Bot.options.historyDepth[2]) {
 
             if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL
+                && Bot.options.orderSize <= Bot.options.quoteBalance
                 && Bot.options.buySignal(
                     symbol,
                     Bot.options.orderSize,
@@ -156,7 +157,8 @@ let bot = function Bot() {
                     value: value,
                     baseAsset: Bot.tradingPairs[symbol].baseAsset,
                     quoteAsset: Bot.options.quoteAsset,
-                    spentQuote: Bot.tradingPairs[symbol].spentQuote
+                    spentQuote: Bot.tradingPairs[symbol].spentQuote,
+                    balance: Bot.options.quoteBalance
                 });
         } catch (e) {
             console.log(e);
@@ -172,7 +174,6 @@ let bot = function Bot() {
             let s = Bot.tradingPairs[symbol].stepSize;
             let p = 10 ** Bot.tradingPairs[symbol].baseAssetPrecision;
             let value = Math.round(Math.round(Bot.tradingPairs[symbol].boughtValue / s) * s * p) / p;
-            let response = await Bot.marketSell(symbol, value);
             let sellPrice = price;
             let earnedQuote = 0;
             if (!Bot.options.test) {
@@ -208,7 +209,8 @@ let bot = function Bot() {
                     baseAsset: Bot.tradingPairs[symbol].baseAsset,
                     quoteAsset: Bot.options.quoteAsset,
                     earnedQuote: earnedQuote,
-                    profit: profit
+                    profit: profit,
+                    balance: Bot.options.quoteBalance
                 });
         } catch (e) {
             console.log(e);

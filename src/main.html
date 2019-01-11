@@ -12,11 +12,13 @@
 <body>
     <div id="app">
         <nav class="navbar sticky-top navbar-light bg-light" v-if="state == 'connected' || state == 'started'">
-            <a class="navbar-brand" href="#">Account balance: {{getBalance}} {{quoteAsset}}</a>
+            <a class="navbar-brand" href="#">Trading balance: {{balance}} {{quoteAsset}}<span v-if="state == 'started'">, profit: {{profit}} {{quoteAsset}}</span></a>
             <div class="form-group">
                 <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span data-feather="play"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor" v-if="state == 'connected'"><span data-feather="cloud-off"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span
+                        data-feather="play"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor" v-if="state == 'connected'"><span
+                        data-feather="cloud-off"></span></a>
             </div>
         </nav>
         <div class="container-fluid">
@@ -72,8 +74,13 @@
                         <div class="form-row">
                             <div class="form-group col-md-4">
                                 <label for="dayVolume" class="col-form-label">Required a day volume:</label>
-                                <input type="number" min=0 step=1 class="form-control" v-model.number="requiredDayQuoteVolume"
-                                    id="dayVolume">
+                                <div class="input-group">
+                                    <input type="number" min=0 step=1 class="form-control" v-model.number="requiredDayQuoteVolume"
+                                        id="dayVolume">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">{{quoteAsset}}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-row align-items-end">
@@ -107,11 +114,21 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group col-md-4">
+                            <div class="form-group col-6 col-md-3">
                                 <label for="order-size" class="col-form-label">Order size:</label>
                                 <div class="input-group">
                                     <input type="number" min=0 step=0.01 class="form-control" v-model.number="orderSize"
                                         id="order-size">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">{{quoteAsset}}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="balance" class="col-form-label">Trading balance<small v-if="!test"> (acc: {{getAccBalance}} {{quoteAsset}}) </small>:</label>
+                                <div class="input-group">
+                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="balance"
+                                        id="balance">
                                     <div class="input-group-append">
                                         <span class="input-group-text">{{quoteAsset}}</span>
                                     </div>
@@ -125,16 +142,7 @@
                                     <label class="form-check-label" for="test">Test</label>
                                 </div>
                             </div>
-                            <div class="form-group col-9 col-md-6" v-if="test">
-                                <label for="balance" class="col-form-label">Account balance:</label>
-                                <div class="input-group">
-                                    <input type="number" min=0 step=0.01 class="form-control" v-model.number="balance"
-                                        id="balance">
-                                    <div class="input-group-append">
-                                        <span class="input-group-text">{{quoteAsset}}</span>
-                                    </div>
-                                </div>
-                            </div>
+
                         </div>
                     </form>
                 </div>
@@ -149,17 +157,20 @@
                             <h5 class="card-title">{{p.price}}</h5>
                             <small v-if="p.changes !== undefined">AVG({{p.size}}):{{p.avg}}</small>
                         </div>
-                        <div class="card-footer border-dark bg-light">no orders yet</div>
+                        <div class="card-footer border-dark" v-bind:class="pairFooterClass(p)">
+                            <span v-if="p.order == undefined">no orders yet</span>
+                            <span v-if="p.order && p.order.type == 'buy'">{{p.order.quote}} {{quoteAsset}}</span>
+                            <span v-if="p.order && p.order.type == 'sell'">{{p.order.profit}} {{p.order.asset}}</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    <script>
-        require('bootstrap');
-        require('feather-icons').replace();
-        require('./renderer.js');
-    </script>
+        <script>
+            require('bootstrap');
+            require('feather-icons').replace();
+            require('./renderer.js');
+        </script>
 </body>
 
 </html>
