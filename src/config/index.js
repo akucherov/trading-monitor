@@ -15,10 +15,10 @@ const defaultOpt = {
     requiredDayQuoteVolume: 1000000,
     hidePricesForNumTicks: 0,
     ignore: [],
-    historyDepth: [300, 300, 1],
+    historyDepth: [10, 10, 1],
     logPricesChanges: true,
-    buySignalOptions: {percent: 1},
-    sellSignalOptions: {percent: 0.5}
+    buySignalOptions: {percent: 0.5},
+    sellSignalOptions: {percent: -0.5}
 }
 
 module.exports = {
