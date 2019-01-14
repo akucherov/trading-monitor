@@ -53,9 +53,6 @@ app.on('ready', _ => {
     })
 
     bot.on("price-changes", data => {
-        let p = 10 ** data.prec;
-        data.avg = Math.round(common.avg(data.prices) * p) / p;
-        data.size = data.prices.length;
         mainWindow.webContents.send("price-changes", data);
     })
 

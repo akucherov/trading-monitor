@@ -143,9 +143,10 @@ ipc.on("price-changes", (evt, data) => {
         if (index >= 0) {
             let info = app.pairs[index];
             info.price = data.price;
-            info.changes = data.changes;
             info.avg = data.avg;
-            info.size = data.size; 
+            info.min = data.min;
+            info.max = data.max;
+            info.changes = data.changes;
             info.prec = data.prec;
             if (info.order && info.order.type == "buy") {
                 let p = 10 ** data.prec;

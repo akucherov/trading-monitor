@@ -54,6 +54,58 @@ let bot = function Bot() {
         if (Bot.tradingPairs[symbol].gaps.push(gap) > Bot.options.historyDepth[2])
             Bot.tradingPairs[symbol].gaps.shift();
 
+        let changes = undefined;
+
+        if (Bot.tradingPairs[symbol].buyPrices.length == Bot.options.historyDepth[0]) {
+            Bot.tradingPairs[symbol].avgBuyPrice = common.avg(Bot.tradingPairs[symbol].buyPrices);
+            if (Bot.tradingPairs[symbol].minBuyPrice) {
+                if (Bot.tradingPairs[symbol].avgBuyPrice < Bot.tradingPairs[symbol].minBuyPrice) {
+                    Bot.tradingPairs[symbol].minBuyPrice = Bot.tradingPairs[symbol].avgBuyPrice;
+                }
+            } else {
+                Bot.tradingPairs[symbol].minBuyPrice = Bot.tradingPairs[symbol].avgBuyPrice;
+            }
+
+            changes = Math.round((Bot.tradingPairs[symbol].avgBuyPrice / Bot.tradingPairs[symbol].minBuyPrice - 1) * 10000) / 100;
+
+            Bot.e.emit("price-changes",
+                {
+                    symbol: symbol,
+                    price: buyPrice,
+                    changes: changes,
+                    avg: Bot.tradingPairs[symbol].avgBuyPrice,
+                    min: Bot.tradingPairs[symbol].minBuyPrice,
+                    max: Bot.tradingPairs[symbol].maxSellPrice,
+                    prec: Bot.tradingPairs[symbol].quotePrecision,
+                    size: Bot.tradingPairs[symbol].buyPrices.length
+                });
+        }
+
+        if (Bot.tradingPairs[symbol].sellPrices.length == Bot.options.historyDepth[1]) {
+            Bot.tradingPairs[symbol].avgSellPrice = common.avg(Bot.tradingPairs[symbol].sellPrices);
+            if (Bot.tradingPairs[symbol].maxSellPrice) {
+                if (Bot.tradingPairs[symbol].avgSellPrice > Bot.tradingPairs[symbol].maxSellPrice) {
+                    Bot.tradingPairs[symbol].maxSellPrice = Bot.tradingPairs[symbol].avgSellPrice;
+                }
+            } else {
+                Bot.tradingPairs[symbol].maxSellPrice = Bot.tradingPairs[symbol].avgSellPrice;
+            }
+
+            changes = Math.round((Bot.tradingPairs[symbol].avgSellPrice / Bot.tradingPairs[symbol].maxSellPrice - 1) * 10000) / 100;
+
+            Bot.e.emit("price-changes",
+                {
+                    symbol: symbol,
+                    price: sellPrice,
+                    changes: changes,
+                    avg: Bot.tradingPairs[symbol].avgSellPrice,
+                    min: Bot.tradingPairs[symbol].minBuyPrice,
+                    max: Bot.tradingPairs[symbol].maxSellPrice,
+                    prec: Bot.tradingPairs[symbol].quotePrecision,
+                    size: Bot.tradingPairs[symbol].sellPrices.length
+                });
+        }
+
         //Show price changes
         if (Bot.options.logPricesChanges) {
             if (Bot.tradingPairs[symbol].counter) {
@@ -61,27 +113,9 @@ let bot = function Bot() {
             } else {
                 Bot.tradingPairs[symbol].counter = Bot.options.hidePricesForNumTicks;
                 if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL) {
-                    let changes = Math.round((buyPrice / Bot.tradingPairs[symbol].buyPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${buyPrice} ${changes}%`);
-                    Bot.e.emit("price-changes",
-                        {
-                            symbol: symbol,
-                            price: buyPrice,
-                            changes: changes,
-                            prices: Bot.tradingPairs[symbol].buyPrices,
-                            prec: Bot.tradingPairs[symbol].quotePrecision
-                        });
                 } else if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL) {
-                    let changes = Math.round((sellPrice / Bot.tradingPairs[symbol].sellPrices[0] - 1) * 10000) / 100;
                     Bot.options.log(`${symbol}: ${sellPrice} ${changes}%`);
-                    Bot.e.emit("price-changes",
-                        {
-                            symbol: symbol,
-                            price: sellPrice,
-                            changes: changes,
-                            prices: Bot.tradingPairs[symbol].sellPrices,
-                            prec: Bot.tradingPairs[symbol].quotePrecision
-                        });
                 }
             }
         }
@@ -93,27 +127,11 @@ let bot = function Bot() {
 
             if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL
                 && Bot.options.orderSize <= Bot.options.quoteBalance
-                && Bot.options.buySignal(
-                    symbol,
-                    Bot.options.orderSize,
-                    Bot.options.buySignalOptions,
-                    buyPrice,
-                    sellPrice,
-                    Bot.tradingPairs[symbol].buyPrices,
-                    Bot.tradingPairs[symbol].sellPrices,
-                    Bot.tradingPairs[symbol].gaps))
+                && changes && changes > Bot.options.buySignalOptions.percent)
                 process.nextTick(() => buy(symbol, buyPrice).catch(Bot.options.log));
 
             if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL
-                && Bot.options.sellSignal(
-                    symbol,
-                    Bot.options.orderSize,
-                    Bot.options.sellSignalOptions,
-                    buyPrice,
-                    sellPrice,
-                    Bot.tradingPairs[symbol].buyPrices,
-                    Bot.tradingPairs[symbol].sellPrices,
-                    Bot.tradingPairs[symbol].gaps))
+                && changes && changes < Bot.options.buySignalOptions.percent)
                 process.nextTick(() => sell(symbol, sellPrice).catch(Bot.options.log));
         }
     };
