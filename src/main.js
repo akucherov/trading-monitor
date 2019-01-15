@@ -102,11 +102,12 @@ ipc.on("try-connect", (evt, apikey, apisecret) => {
 })
 
 ipc.on("try-start", (evt, options) => {
+    let binance = config.getBinanceSettings();
     bot.start(Object.assign(options, 
         {
             buySignal: signals.buySignalByChanges,
             sellSignal: signals.sellSignalByChanges
-        }));
+        }), binance.apikey, binance.apisecret);
         
     config.setOptions(options);
 })

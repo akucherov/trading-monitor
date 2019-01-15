@@ -57,7 +57,9 @@ let bot = function Bot() {
         let changes = undefined;
 
         if (Bot.tradingPairs[symbol].buyPrices.length == Bot.options.historyDepth[0]) {
-            Bot.tradingPairs[symbol].avgBuyPrice = common.avg(Bot.tradingPairs[symbol].buyPrices);
+            Bot.tradingPairs[symbol].avgBuyPrice = common.round(
+                common.avg(Bot.tradingPairs[symbol].buyPrices),
+                Bot.tradingPairs[symbol].quotePrecision);
             if (Bot.tradingPairs[symbol].minBuyPrice) {
                 if (Bot.tradingPairs[symbol].avgBuyPrice < Bot.tradingPairs[symbol].minBuyPrice) {
                     Bot.tradingPairs[symbol].minBuyPrice = Bot.tradingPairs[symbol].avgBuyPrice;
@@ -66,23 +68,28 @@ let bot = function Bot() {
                 Bot.tradingPairs[symbol].minBuyPrice = Bot.tradingPairs[symbol].avgBuyPrice;
             }
 
-            changes = Math.round((Bot.tradingPairs[symbol].avgBuyPrice / Bot.tradingPairs[symbol].minBuyPrice - 1) * 10000) / 100;
+            if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL) {
+                changes = Math.round((Bot.tradingPairs[symbol].avgBuyPrice / Bot.tradingPairs[symbol].minBuyPrice - 1) * 10000) / 100;
 
-            Bot.e.emit("price-changes",
-                {
-                    symbol: symbol,
-                    price: buyPrice,
-                    changes: changes,
-                    avg: Bot.tradingPairs[symbol].avgBuyPrice,
-                    min: Bot.tradingPairs[symbol].minBuyPrice,
-                    max: Bot.tradingPairs[symbol].maxSellPrice,
-                    prec: Bot.tradingPairs[symbol].quotePrecision,
-                    size: Bot.tradingPairs[symbol].buyPrices.length
-                });
+                Bot.e.emit("price-changes",
+                    {
+                        symbol: symbol,
+                        status: Bot.tradingPairs[symbol].status,
+                        price: buyPrice,
+                        changes: changes,
+                        avg: Bot.tradingPairs[symbol].avgBuyPrice,
+                        min: Bot.tradingPairs[symbol].minBuyPrice,
+                        max: Bot.tradingPairs[symbol].maxSellPrice,
+                        prec: Bot.tradingPairs[symbol].quotePrecision,
+                        size: Bot.tradingPairs[symbol].buyPrices.length
+                    });
+            }
         }
 
         if (Bot.tradingPairs[symbol].sellPrices.length == Bot.options.historyDepth[1]) {
-            Bot.tradingPairs[symbol].avgSellPrice = common.avg(Bot.tradingPairs[symbol].sellPrices);
+            Bot.tradingPairs[symbol].avgSellPrice = common.round(
+                common.avg(Bot.tradingPairs[symbol].sellPrices),
+                Bot.tradingPairs[symbol].quotePrecision);
             if (Bot.tradingPairs[symbol].maxSellPrice) {
                 if (Bot.tradingPairs[symbol].avgSellPrice > Bot.tradingPairs[symbol].maxSellPrice) {
                     Bot.tradingPairs[symbol].maxSellPrice = Bot.tradingPairs[symbol].avgSellPrice;
@@ -91,19 +98,22 @@ let bot = function Bot() {
                 Bot.tradingPairs[symbol].maxSellPrice = Bot.tradingPairs[symbol].avgSellPrice;
             }
 
-            changes = Math.round((Bot.tradingPairs[symbol].avgSellPrice / Bot.tradingPairs[symbol].maxSellPrice - 1) * 10000) / 100;
+            if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL) {
+                changes = Math.round((Bot.tradingPairs[symbol].avgSellPrice / Bot.tradingPairs[symbol].maxSellPrice - 1) * 10000) / 100;
 
-            Bot.e.emit("price-changes",
-                {
-                    symbol: symbol,
-                    price: sellPrice,
-                    changes: changes,
-                    avg: Bot.tradingPairs[symbol].avgSellPrice,
-                    min: Bot.tradingPairs[symbol].minBuyPrice,
-                    max: Bot.tradingPairs[symbol].maxSellPrice,
-                    prec: Bot.tradingPairs[symbol].quotePrecision,
-                    size: Bot.tradingPairs[symbol].sellPrices.length
-                });
+                Bot.e.emit("price-changes",
+                    {
+                        symbol: symbol,
+                        status: Bot.tradingPairs[symbol].status,
+                        price: sellPrice,
+                        changes: changes,
+                        avg: Bot.tradingPairs[symbol].avgSellPrice,
+                        min: Bot.tradingPairs[symbol].minBuyPrice,
+                        max: Bot.tradingPairs[symbol].maxSellPrice,
+                        prec: Bot.tradingPairs[symbol].quotePrecision,
+                        size: Bot.tradingPairs[symbol].sellPrices.length
+                    });
+            }
         }
 
         //Show price changes
@@ -131,7 +141,7 @@ let bot = function Bot() {
                 process.nextTick(() => buy(symbol, buyPrice).catch(Bot.options.log));
 
             if (Bot.tradingPairs[symbol].status == statuses.WAIT_SELL_SIGNAL
-                && changes && changes < Bot.options.buySignalOptions.percent)
+                && changes && changes < Bot.options.sellSignalOptions.percent)
                 process.nextTick(() => sell(symbol, sellPrice).catch(Bot.options.log));
         }
     };
@@ -166,11 +176,13 @@ let bot = function Bot() {
             }
             Bot.tradingPairs[symbol].boughtValue = value;
             Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
+            Bot.tradingPairs[symbol].maxSellPrice = undefined;
             Bot.options.log(`${value} ${Bot.tradingPairs[symbol].baseAsset} has been bought for ${Bot.tradingPairs[symbol].boughtPrice} ${Bot.options.quoteAsset}`);
             Bot.options.log(`${Bot.tradingPairs[symbol].spentQuote} ${Bot.options.quoteAsset} were spent`)
             Bot.e.emit("asset-isbought",
                 {
                     symbol: symbol,
+                    status: Bot.tradingPairs[symbol].status,
                     price: Bot.tradingPairs[symbol].boughtPrice,
                     value: value,
                     baseAsset: Bot.tradingPairs[symbol].baseAsset,
@@ -213,6 +225,7 @@ let bot = function Bot() {
             Bot.tradingPairs[symbol].boughtQuantity = 0;
             Bot.tradingPairs[symbol].boughtPrice = 0;
             Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
+            Bot.tradingPairs[symbol].minBuyPrice = undefined;
             Bot.options.log(`${value} ${Bot.tradingPairs[symbol].baseAsset} has been sold for ${sellPrice} ${Bot.options.quoteAsset}`);
             Bot.options.log(`${earnedQuote} ${Bot.options.quoteAsset} were earned`);
             let profit = common.round(
@@ -222,7 +235,8 @@ let bot = function Bot() {
             Bot.e.emit("asset-issold",
                 {
                     symbol: symbol,
-                    price: Bot.tradingPairs[symbol].sellPrice,
+                    status: Bot.tradingPairs[symbol].status,
+                    price: sellPrice,
                     value: value,
                     baseAsset: Bot.tradingPairs[symbol].baseAsset,
                     quoteAsset: Bot.options.quoteAsset,
@@ -277,12 +291,17 @@ let bot = function Bot() {
             Bot.marketBuy = util.promisify(Bot.binance.marketBuy);
         },
 
-        start: async function (opt) {
+        start: async function (opt, apikey, apisecret) {
             prepOptions(opt);
+
+            Bot.options.BINANCE_API_KEY = apikey;
+            Bot.options.BINANCE_API_SECRET = apisecret;
 
             Bot.binance.options({
                 APIKEY: Bot.options.BINANCE_API_KEY,
                 APISECRET: Bot.options.BINANCE_API_SECRET,
+                useServerTime: true,
+                test: Bot.options.test,
                 reconnect: true
             });
 

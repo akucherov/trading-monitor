@@ -50,6 +50,10 @@ let app = new Vue({
             if (p) {
                 if (p.changes === undefined) {
                     return "bg-dark"
+                } else if (p.changes == 0 && p.status == 1) {
+                    return "bg-danger"
+                } else if (p.changes == 0 && p.status == 2) {
+                    return "bg-success"
                 } else if (p.changes < 0) {
                     return "bg-danger"
                 } else {
@@ -142,12 +146,14 @@ ipc.on("price-changes", (evt, data) => {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
         if (index >= 0) {
             let info = app.pairs[index];
+            info.status = data.status;
             info.price = data.price;
             info.avg = data.avg;
             info.min = data.min;
             info.max = data.max;
             info.changes = data.changes;
             info.prec = data.prec;
+            info.size = data.size;
             if (info.order && info.order.type == "buy") {
                 let p = 10 ** data.prec;
                 info.order.quote = Math.round(info.order.value * info.price * p) / p;
@@ -170,6 +176,7 @@ ipc.on("asset-isbought", (evt, data) => {
                 quote: data.spentQuote
             }
             info.order = order;
+            info.status = data.status;
             app.$set(app.pairs, index, info);
             let p = 10 ** info.prec;
             app.balance = Math.round(data.balance * p)/p;
