@@ -13,7 +13,9 @@ let app = new Vue({
         secret: "",
         key: "",
         state: "processing",
+        mode: "grid",
         pairs: [],
+        orders: [],
         test: true,
         quoteAsset: "USDT",
         requiredDayQuoteVolume: 10000000,
@@ -78,6 +80,20 @@ let app = new Vue({
             }
         },
 
+        tableClass: function (o) {
+            if (o) {
+                if (o.type == 'buy') {
+                    return "table-warning"
+                } else if (o.profit >= 0) {
+                    return "table-success"
+                } else {
+                    return "table-danger"
+                }
+            } else {
+                return "table-light"
+            }
+        },
+
         startMonitor: function () {
             if (this.orderSize >= this.balance) {
                 this.error = true;
@@ -123,6 +139,14 @@ let app = new Vue({
 
         disconnectMonitor: function() {
             this.state = "disconnected";
+        },
+
+        changeMode: function() {
+            if (this.mode == "grid") {
+                this.mode = "table"
+            } else {
+                this.mode = "grid"
+            }
         }
     }
 })
@@ -156,7 +180,7 @@ ipc.on("price-changes", (evt, data) => {
             info.size = data.size;
             if (info.order && info.order.type == "buy") {
                 let p = 10 ** data.prec;
-                info.order.hope = Math.round((info.order.value * info.price - info.order.quote) * p) / p ;
+                info.order.hope = Math.round((info.order.buyValue * info.price - info.order.spentQuote) * p) / p ;
             }
             app.$set(app.pairs, index, info);
         }
@@ -170,14 +194,17 @@ ipc.on("asset-isbought", (evt, data) => {
             let info = app.pairs[index];
             let p = 10 ** info.prec;
             let h = Math.round((data.value * data.price - data.spentQuote) * p) / p;
+            let id = app.orders.length;
             let order = {
+                id: id,
                 type: "buy",
-                value: data.value,
-                price: data.price,
-                asset: data.baseAsset,
-                quote: data.spentQuote,
+                buyValue: data.value,
+                buyPrice: data.price,
+                baseAsset: data.baseAsset,
+                spentQuote: data.spentQuote,
                 hope: h
             }
+            app.orders.unshift(order);
             info.order = order;
             info.status = data.status;
             app.$set(app.pairs, index, info);
@@ -191,14 +218,13 @@ ipc.on("asset-issold", (evt, data) => {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
         if (index >= 0) {
             let info = app.pairs[index];
-            let order = {
+            Object.assign(info.order, {
                 type: "sell",
-                value: data.value,
-                price: data.price,
-                asset: data.quoteAsset,
+                soldValue: data.value,
+                soldPrice: data.price,
+                earnedQuote: data.earnedQuote,
                 profit: data.profit
-            }
-            info.order = order;
+            });
             app.$set(app.pairs, index, info);
             let p = 10 ** info.prec;
             app.balance = Math.round(data.balance * p)/p;

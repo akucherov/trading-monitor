@@ -12,13 +12,24 @@
 <body>
     <div id="app">
         <nav class="navbar sticky-top navbar-light bg-light" v-if="state == 'connected' || state == 'started'">
-            <a class="navbar-brand" href="#">Trading balance: {{balance}} {{quoteAsset}}<span v-if="state == 'started'">, profit: {{profit}} {{quoteAsset}}</span></a>
+            <a class="navbar-brand" href="#">Trading balance: {{balance}} {{quoteAsset}}<span v-if="state == 'started'">,
+                    profit: {{profit}} {{quoteAsset}}</span></a>
             <div class="form-group">
-                <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'"><span data-feather="pause"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'"><span
-                        data-feather="play"></span></a>
-                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor" v-if="state == 'connected'"><span
-                        data-feather="cloud-off"></span></a>
+                <a href="#" class="btn btn-link" v-on:click="pauseMonitor" v-if="state == 'started'">
+                    <span data-feather="pause"></span>
+                </a>
+                <a href="#" class="btn btn-link" v-on:click="changeMode" v-if="state == 'started' && mode == 'grid'">
+                    <span data-feather="calendar"></span>
+                </a>
+                <a href="#" class="btn btn-link" v-on:click="changeMode" v-if="state == 'started' && mode == 'table'">
+                    <span data-feather="grid"></span>
+                </a>
+                <a href="#" class="btn btn-link" v-on:click="startMonitor" v-if="state == 'connected'">
+                    <span data-feather="play"></span>
+                </a>
+                <a href="#" class="btn btn-link" v-on:click="disconnectMonitor" v-if="state == 'connected'">
+                    <span data-feather="cloud-off"></span>
+                </a>
             </div>
         </nav>
         <div class="container-fluid">
@@ -125,7 +136,8 @@
                                 </div>
                             </div>
                             <div class="form-group col-6">
-                                <label for="balance" class="col-form-label">Trading balance<small v-if="!test"> (acc: {{getAccBalance}} {{quoteAsset}}) </small>:</label>
+                                <label for="balance" class="col-form-label">Trading balance<small v-if="!test"> (acc:
+                                        {{getAccBalance}} {{quoteAsset}}) </small>:</label>
                                 <div class="input-group">
                                     <input type="number" min=0 step=0.01 class="form-control" v-model.number="balance"
                                         id="balance">
@@ -147,25 +159,59 @@
                     </form>
                 </div>
             </div>
-            <div class="row no-gutters" v-if="state == 'started'">
+            <div class="row no-gutters" v-if="state == 'started' && mode == 'grid'">
                 <div class="col-sm-4 col-md-3 col-lg-2" v-for="p in pairs">
                     <div class="card mb-3 ticker border-dark">
                         <div class="card-header border-dark text-white" v-bind:class="pairClass(p)">{{p.symbol}}
                             <span class="float-right" v-if="p.changes !== undefined">{{p.changes}}%</span>
                         </div>
                         <ul class="list-group list-group-flush">
-                                <li class="list-group-item" v-if="p.avg">AVG({{p.size}}):<span class="float-right">{{p.avg}}</span></li>
-                                <li class="list-group-item" v-if="p.status == 1"><small class="float-left">MIN AVG:</small><small class="float-right">{{p.min}}</small></li>
-                                <li class="list-group-item" v-if="p.status == 2"><small class="float-left">MAX AVG:</small><small class="float-right">{{p.max}}</small></li>
-                                <li class="list-group-item" v-if="p.price"><small class="float-left">LAST PRICE:</small><small class="float-right">{{p.price}}</small></li>
-                                <li class="list-group-item" v-if="p.order"><small class="float-left">ORDER PRICE:</small><small class="float-right">{{p.order.price}}</small></li>
+                            <li class="list-group-item" v-if="p.avg">AVG({{p.size}}):<span class="float-right">{{p.avg}}</span></li>
+                            <li class="list-group-item" v-if="p.status == 1"><small class="float-left">MIN AVG:</small><small
+                                    class="float-right">{{p.min}}</small></li>
+                            <li class="list-group-item" v-if="p.status == 2"><small class="float-left">MAX AVG:</small><small
+                                    class="float-right">{{p.max}}</small></li>
+                            <li class="list-group-item" v-if="p.price"><small class="float-left">LAST PRICE:</small><small
+                                    class="float-right">{{p.price}}</small></li>
+                            <li class="list-group-item" v-if="p.order && p.type == 'buy'"><small class="float-left">ORDER
+                                    PRICE:</small><small class="float-right">{{p.order.buyPrice}}</small></li>
+                            <li class="list-group-item" v-if="p.order && p.type == 'sell'"><small class="float-left">ORDER
+                                    PRICE:</small><small class="float-right">{{p.order.sellPrice}}</small></li>
                         </ul>
                         <div class="card-footer border-dark" v-bind:class="pairFooterClass(p)">
-                                <span v-if="p.order && p.order.type == 'buy'">{{p.order.hope}} {{quoteAsset}}</span>
-                                <span v-if="p.order && p.order.type == 'sell'">{{p.order.profit}} {{p.order.asset}}</span>
+                            <span v-if="p.order && p.order.type == 'buy'">{{p.order.hope}} {{quoteAsset}}</span>
+                            <span v-if="p.order && p.order.type == 'sell'">{{p.order.profit}} {{p.order.quoteAsset}}</span>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="row no-gutters" v-if="state == 'started' && mode == 'table'">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Spent</th>
+                            <th scope="col">Bought</th>
+                            <th scope="col">Price</th>
+                            <th scope="col">Sold</th>
+                            <th scope="col">Price</th>
+                            <th scope="col">Earned</th>
+                            <th scope="col">Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="o in orders" v-bind:class="tableClass(o)">
+                            <th scope="row">{{o.id + 1}}</th>
+                            <td>{{o.spentQuote}} {{quoteAsset}}</td>
+                            <td>{{o.buyValue}} {{o.baseAsset}}</td>
+                            <td>{{o.buyPrice}}</td>
+                            <td v-if="o.type == 'sell'">{{o.soldValue}} {{o.baseAsset}}</td>
+                            <td v-if="o.type == 'sell'">{{o.soldPrice}}</td>
+                            <td v-if="o.type == 'sell'">{{o.earnedQuote}} {{quoteAsset}}</td>
+                            <td v-if="o.type == 'sell'">{{o.profit}} {{quoteAsset}}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
         <script>
