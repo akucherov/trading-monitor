@@ -33,6 +33,7 @@ let bot = function Bot() {
     Bot.options = default_options;
     Bot.tradingPairs = new Array();
     Bot.e = new emitter();
+    Bot.allowBuy = true;
 
     const monitor = function (symbol, depth) {
 
@@ -135,7 +136,7 @@ let bot = function Bot() {
             Bot.tradingPairs[symbol].sellPrices.length == Bot.options.historyDepth[1] &&
             Bot.tradingPairs[symbol].gaps.length == Bot.options.historyDepth[2]) {
 
-            if (Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL
+            if (Bot.allowBuy && Bot.tradingPairs[symbol].status == statuses.WAIT_BUY_SIGNAL
                 && Bot.options.orderSize <= Bot.options.quoteBalance
                 && changes && changes > Bot.options.buySignalOptions.percent)
                 process.nextTick(() => buy(symbol, buyPrice).catch(Bot.options.log));
@@ -170,8 +171,8 @@ let bot = function Bot() {
                     Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
                 }
             } else {
-                Bot.tradingPairs[symbol].spentQuote = Bot.options.orderSize;
-                Bot.options.quoteBalance -= Bot.options.orderSize;
+                Bot.tradingPairs[symbol].spentQuote = common.round(value * price, Bot.tradingPairs[symbol].quotePrecision);
+                Bot.options.quoteBalance -= Bot.tradingPairs[symbol].spentQuote;
                 Bot.tradingPairs[symbol].boughtPrice = price;
             }
             Bot.tradingPairs[symbol].boughtValue = value;
@@ -191,7 +192,7 @@ let bot = function Bot() {
                     balance: Bot.options.quoteBalance
                 });
         } catch (e) {
-            console.log(e);
+            Bot.options.log(e);
             Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
         }
 
@@ -203,14 +204,14 @@ let bot = function Bot() {
             Bot.options.log(`Sell signal has been recieved for ${symbol}`);
             let s = Bot.tradingPairs[symbol].stepSize;
             let p = 10 ** Bot.tradingPairs[symbol].baseAssetPrecision;
-            let value = Math.round(Math.round(Bot.tradingPairs[symbol].boughtValue / s) * s * p) / p;
+            let value = Math.round(Math.floor(Bot.tradingPairs[symbol].boughtValue / s) * s * p) / p;
             let sellPrice = price;
             let earnedQuote = 0;
             if (!Bot.options.test) {
-                let response = await Bot.marketSell(symbol, value);
+                let response = await Bot.marketSell(symbol, value);                
                 if (response.status == "FILLED") {
+                    console.log(response);
                     earnedQuote = response.cummulativeQuoteQty - common.commisionByFills(response.fills);
-                    Bot.options.quoteBalance += earnedQuote;
                     sellPrice = common.round(
                         response.cummulativeQuoteQty / response.executedQty,
                         Bot.tradingPairs[symbol].quotePrecision)
@@ -220,8 +221,12 @@ let bot = function Bot() {
                 }
             } else {
                 earnedQuote = common.round(value * price, Bot.tradingPairs[symbol].quotePrecision);
-                Bot.options.quoteBalance += earnedQuote;
             }
+
+            Bot.allowBuy = false;
+            setTimeout(() => {Bot.allowBuy = true}, 5000);
+
+            Bot.options.quoteBalance += earnedQuote;
             Bot.tradingPairs[symbol].boughtQuantity = 0;
             Bot.tradingPairs[symbol].boughtPrice = 0;
             Bot.tradingPairs[symbol].status = statuses.WAIT_BUY_SIGNAL;
@@ -245,7 +250,7 @@ let bot = function Bot() {
                     balance: Bot.options.quoteBalance
                 });
         } catch (e) {
-            console.log(e);
+            Bot.options.log(e);
             Bot.tradingPairs[symbol].status = statuses.WAIT_SELL_SIGNAL;
         }
 

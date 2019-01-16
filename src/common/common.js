@@ -12,11 +12,11 @@ function avgPriceByVReducer(r, o) {
 }
 
 function fillsValueReducer(v, o) {
-    return v + (o.qty - o.commission);
+    return v + (parseFloat(o.qty) - parseFloat(o.commission));
 }
 
 function fillsCommissionReducer(v, o) {
-    return v + o.commission;
+    return v + parseFloat(o.commission);
 }
 
 module.exports = {
@@ -72,12 +72,12 @@ module.exports = {
     
     valueByQuote: function (quote, price, stepSize, quotePrecision) {
         let p = 10**quotePrecision;
-        return Math.round(Math.round((quote/price)/stepSize)*stepSize*p)/p;
+        return Math.round(Math.floor((quote/price)/stepSize)*stepSize*p)/p;
     },
     
     quoteByValue: function (symbol, value, price, stepSize, baseAssetPrecision) {
         let p = 10**baseAssetPrecision;
-        return Math.round(Math.round(value/stepSize)*stepSize*price*p)/p;
+        return Math.round(Math.floor(value/stepSize)*stepSize*price*p)/p;
     },
     
     valueByFills: function (fills) {

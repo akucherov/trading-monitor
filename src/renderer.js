@@ -156,7 +156,7 @@ ipc.on("price-changes", (evt, data) => {
             info.size = data.size;
             if (info.order && info.order.type == "buy") {
                 let p = 10 ** data.prec;
-                info.order.quote = Math.round(info.order.value * info.price * p) / p;
+                info.order.hope = Math.round((info.order.value * info.price - info.order.quote) * p) / p ;
             }
             app.$set(app.pairs, index, info);
         }
@@ -168,17 +168,19 @@ ipc.on("asset-isbought", (evt, data) => {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
         if (index >= 0) {
             let info = app.pairs[index];
+            let p = 10 ** info.prec;
+            let h = Math.round((data.value * data.price - data.spentQuote) * p) / p;
             let order = {
                 type: "buy",
                 value: data.value,
                 price: data.price,
                 asset: data.baseAsset,
-                quote: data.spentQuote
+                quote: data.spentQuote,
+                hope: h
             }
             info.order = order;
             info.status = data.status;
             app.$set(app.pairs, index, info);
-            let p = 10 ** info.prec;
             app.balance = Math.round(data.balance * p)/p;
         }
     }
