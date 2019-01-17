@@ -25,5 +25,8 @@ body {
 }
 
 .ticker {
-  margin: 5px
+  margin-top: 6px;
+  margin-bottom: 0px;
+  margin-right: 3px;
+  margin-left: 3px;
  }

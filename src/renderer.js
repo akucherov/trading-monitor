@@ -1,5 +1,7 @@
-const electron = require('electron')
-const ipc = electron.ipcRenderer
+const electron = require('electron');
+const ipc = electron.ipcRenderer;
+const dialog = electron.remote.dialog;
+const XLSX = require('xlsx');
 
 const Vue = require('./vendors/vue.js');
 
@@ -32,7 +34,7 @@ let app = new Vue({
     },
 
     computed: {
-        getAccBalance: function() {
+        getAccBalance: function () {
             if (!this.test) {
                 let a = this.quoteAsset;
                 let c = this.binanceBalance.filter(b => b.currency === a);
@@ -105,19 +107,19 @@ let app = new Vue({
                     test: this.test,
                     quoteAsset: this.quoteAsset,
                     orderSize: this.orderSize,
-                    quoteBalance: this.balance, 
+                    quoteBalance: this.balance,
                     requiredDayQuoteVolume: this.requiredDayQuoteVolume,
                     hidePricesForNumTicks: this.hidePricesForNumTicks,
                     ignore: [],
                     historyDepth: [this.buyDepth, this.sellDepth, 1],
                     logPricesChanges: true,
-                    buySignalOptions: {percent: this.buyPercent},
-                    sellSignalOptions: {percent: this.sellPercent}
+                    buySignalOptions: { percent: this.buyPercent },
+                    sellSignalOptions: { percent: this.sellPercent }
                 };
                 this.profit = 0;
                 this.prevBalance = this.balance;
                 ipc.send("try-start", options);
-            }  
+            }
         },
 
         pauseMonitor: function () {
@@ -125,7 +127,7 @@ let app = new Vue({
             this.state = "processing";
         },
 
-        connectMonitor: function() {
+        connectMonitor: function () {
             this.error = false;
             if (this.secret === "" || this.key === "") {
                 this.validated = true;
@@ -134,20 +136,50 @@ let app = new Vue({
                 this.state = "processing";
                 ipc.send("try-connect", this.key, this.secret);
             }
-            
+
         },
 
-        disconnectMonitor: function() {
+        disconnectMonitor: function () {
             this.state = "disconnected";
         },
 
-        changeMode: function() {
+        changeMode: function () {
             if (this.mode == "grid") {
                 this.mode = "table"
             } else {
                 this.mode = "grid"
             }
+        },
+
+        openDB: function () {
+            this.state = "database"
+        },
+
+        closeDB: function () {
+            this.state = "connected"
+        },
+
+        saveDB: function () {
+            let DB = document.getElementById('database');
+            let XTENSION = "xls|xlsx|xlsm|xlsb|xml|csv|txt|dif|sylk|slk|prn|ods|fods|htm|html".split("|")
+            let wb = XLSX.utils.table_to_book(DB);
+            let ts = new Date();
+            let o = dialog.showSaveDialog({
+                    defaultPath: this.quoteAsset + '-' + ts.toISOString().substr(0, 10) + '.xlsx',
+                    title: 'Save file as',
+                    filters: [{
+                        name: "Spreadsheets",
+                        extensions: XTENSION
+                    }]
+                });
+            XLSX.writeFile(wb, o);
+            dialog.showMessageBox({ message: "Exported data to " + o, buttons: ["OK"] });
+        },
+
+        clearDB: function () {
+            this.orders = []
         }
+
     }
 })
 
@@ -155,7 +187,7 @@ ipc.on("trading-pairs", (evt, symbols) => {
     if (symbols && symbols.length > 0) {
         app.pairs = [];
         symbols.forEach(element => {
-            app.pairs.push({symbol: element, price: undefined, changes: undefined})       
+            app.pairs.push({ symbol: element, price: undefined, changes: undefined })
         });
         app.state = "started";
     } else {
@@ -180,7 +212,7 @@ ipc.on("price-changes", (evt, data) => {
             info.size = data.size;
             if (info.order && info.order.type == "buy") {
                 let p = 10 ** data.prec;
-                info.order.hope = Math.round((info.order.buyValue * info.price - info.order.spentQuote) * p) / p ;
+                info.order.hope = Math.round((info.order.buyValue * info.price - info.order.spentQuote) * p) / p;
             }
             app.$set(app.pairs, index, info);
         }
@@ -194,21 +226,22 @@ ipc.on("asset-isbought", (evt, data) => {
             let info = app.pairs[index];
             let p = 10 ** info.prec;
             let h = Math.round((data.value * data.price - data.spentQuote) * p) / p;
-            let id = app.orders.length;
+            let ts = new Date();
             let order = {
-                id: id,
+                bts: ts,
                 type: "buy",
                 buyValue: data.value,
                 buyPrice: data.price,
                 baseAsset: data.baseAsset,
                 spentQuote: data.spentQuote,
+                quoteAsset: data.quoteAsset,
                 hope: h
             }
             app.orders.unshift(order);
             info.order = order;
             info.status = data.status;
             app.$set(app.pairs, index, info);
-            app.balance = Math.round(data.balance * p)/p;
+            app.balance = Math.round(data.balance * p) / p;
         }
     }
 })
@@ -217,8 +250,10 @@ ipc.on("asset-issold", (evt, data) => {
     if (data) {
         let index = app.pairs.findIndex(e => e.symbol === data.symbol);
         if (index >= 0) {
+            let ts = new Date();
             let info = app.pairs[index];
             Object.assign(info.order, {
+                sts: ts,
                 type: "sell",
                 soldValue: data.value,
                 soldPrice: data.price,
@@ -227,8 +262,8 @@ ipc.on("asset-issold", (evt, data) => {
             });
             app.$set(app.pairs, index, info);
             let p = 10 ** info.prec;
-            app.balance = Math.round(data.balance * p)/p;
-            app.profit = Math.round((app.profit + data.profit) * p)/p;
+            app.balance = Math.round(data.balance * p) / p;
+            app.profit = Math.round((app.profit + data.profit) * p) / p;
         }
     }
 })

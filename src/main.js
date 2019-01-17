@@ -18,8 +18,9 @@ const template = [{
     submenu: [
         { label: "About Application", selector: "orderFrontStandardAboutPanel:" },
         { type: "separator" },
-        { label: "Quit", accelerator: "Command+Q", click: function() { app.quit(); }}
-    ]}, {
+        { label: "Quit", accelerator: "Command+Q", click: function () { app.quit(); } }
+    ]
+}, {
     label: "Edit",
     submenu: [
         { label: "Undo", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
@@ -29,19 +30,26 @@ const template = [{
         { label: "Copy", accelerator: "CmdOrCtrl+C", selector: "copy:" },
         { label: "Paste", accelerator: "CmdOrCtrl+V", selector: "paste:" },
         { label: "Select All", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
-    ]}, {
-    label: "View",
-    submenu: [
-        { label: 'Reload', accelerator: 'CmdOrCtrl+R', click (item, focusedWindow) {if (focusedWindow) focusedWindow.reload() }},
-        { label: 'Toggle Developer Tools', accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
-            click (item, focusedWindow) {
-              if (focusedWindow) focusedWindow.webContents.toggleDevTools()
-            }
-        }
-    ]}
+    ]
+}
 ];
 
-Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+const dev = [
+    {
+        label: "Dev Tools",
+        submenu: [
+            { label: 'Reload', accelerator: 'CmdOrCtrl+R', click(item, focusedWindow) { if (focusedWindow) focusedWindow.reload() } },
+            {
+                label: 'Toggle Developer Tools', accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+                click(item, focusedWindow) {
+                    if (focusedWindow) focusedWindow.webContents.toggleDevTools()
+                }
+            }
+        ]
+    }
+];
+
+Menu.setApplicationMenu(Menu.buildFromTemplate(template.concat(dev)));
 
 app.on('ready', _ => {
     mainWindow = new BrowserWindow(config.getWindowSize())
@@ -51,7 +59,7 @@ app.on('ready', _ => {
     mainWindow.on('closed', _ => {
         mainWindow = null
     })
-    
+
     mainWindow.on('resize', _ => {
         let size = mainWindow.getSize();
         config.setWindowSize(size[0], size[1]);
@@ -112,12 +120,12 @@ ipc.on("try-connect", (evt, apikey, apisecret) => {
 
 ipc.on("try-start", (evt, options) => {
     let binance = config.getBinanceSettings();
-    bot.start(Object.assign(options, 
+    bot.start(Object.assign(options,
         {
             buySignal: signals.buySignalByChanges,
             sellSignal: signals.sellSignalByChanges
         }), binance.apikey, binance.apisecret);
-        
+
     config.setOptions(options);
 })
 
